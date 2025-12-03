@@ -3,7 +3,8 @@ version: 2
 semantic_models:
   - name: dim_patient_semantic
     model: ref('dim_patient')
-    primary_entity: patient
+    defaults:
+      agg_time_dimension: year_of_birth
     entities:
       - name: patient
         type: primary
@@ -24,7 +25,8 @@ semantic_models:
 
   - name: fact_chronic_condition_semantic
     model: ref('fact_chronic_condition')
-    primary_entity: patient_condition
+    defaults:
+      agg_time_dimension: first_diagnosis_date
     entities:
       - name: patient_condition
         type: primary
@@ -41,24 +43,29 @@ semantic_models:
         agg: sum
         expr: diagnosis_count
     dimensions:
-      - name: chronic_condition_code
         type: categorical
         expr: chronic_condition_code
+      - name: first_diagnosis_date
+        type: time
+        expr: first_diagnosis_date
+        type_params:
+          time_granularity: day
 
 metrics:
   - name: patient_count
+    label: Patient Count
     type: simple
     type_params:
       measure: patient_count
-    semantic_model: dim_patient_semantic
 
   - name: chronic_condition_patient_count
+    label: Chronic Condition Patient Count
     type: simple
     type_params:
       measure: chronic_condition_patient_count
-    semantic_model: fact_chronic_condition_semantic
 
   - name: chronic_condition_prevalence
+    label: Chronic Condition Prevalence
     type: ratio
     type_params:
       numerator: chronic_condition_patient_count

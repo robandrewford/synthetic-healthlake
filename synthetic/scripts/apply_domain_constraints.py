@@ -13,7 +13,7 @@ def main():
     parser.add_argument('--omop-dir', required=True)
     parser.add_argument('--fhir-dir', required=True)
     parser.add_argument('--constraints-config', required=True)
-    parser.add_argument('--distributions-config", required=True)
+    parser.add_argument('--distributions-config', required=True)
     parser.add_argument('--terminology-dir', required=True)
     args = parser.parse_args()
     print("Stub apply_domain_constraints: omop-dir", args.omop_dir)
