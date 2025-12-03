@@ -43,6 +43,7 @@ semantic_models:
         agg: sum
         expr: diagnosis_count
     dimensions:
+      - name: chronic_condition_code
         type: categorical
         expr: chronic_condition_code
       - name: first_diagnosis_date
