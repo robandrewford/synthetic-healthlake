@@ -1,0 +1,92 @@
+site_name: Synthetic HealthLake
+site_description: "Synthetic FHIR + OMOP lakehouse reference stack on AWS (Iceberg, dbt, ECS, Step Functions)"
+site_url: "https://example.com/fhir-omop-synthetic-stack"
+repo_name: "fhir-omop-synthetic-stack"
+repo_url: "https://github.com/your-org/fhir-omop-synthetic-stack"
+
+docs_dir: docs
+
+theme:
+  name: mkdocs
+  highlightjs: true
+  navigation_depth: 3
+
+nav:
+  - Home:
+      - Overview: README.md
+      - Architecture Overview: ARCHITECTURE_OVERVIEW.md
+      - Design Decisions: DESIGN_DECISIONS.md
+
+  - Governance & Security:
+      - Governance: GOVERNANCE.md
+      - Security Policy: SECURITY.md
+      - Data Governance Plan: DATA_GOVERNANCE_PLAN.md
+      - Access Control Matrix: ACCESS_CONTROL_MATRIX.md
+      - Risk Register: RISK_REGISTER.md
+      - Threat Model: THREAT_MODEL.md
+
+  - Architecture & Operations:
+      - Observability Plan: OBSERVABILITY_PLAN.md
+      - Cost Management Strategy: COST_MANAGEMENT_STRATEGY.md
+      - Pipeline SLO/SLA: PIPELINE_SLO_SLA.md
+      - Operations Guide: OPERATIONS.md
+      - Architecture Diagrams:
+          - High-Level Architecture: diagrams/high-level-architecture.mmd
+          - Infra Architecture: diagrams/infra-architecture.mmd
+
+  - Data & Modeling:
+      - Data Quality Strategy: DATA_QUALITY_STRATEGY.md
+      - Data Lineage Overview: DATA_LINEAGE_OVERVIEW.md
+      - Validation Framework: VALIDATION_FRAMEWORK.md
+
+  - Synthetic Data Layer:
+      - Synthetic Pipeline Overview: synthetic-data-pipeline.md
+      - Domain Constraints (YAML): ../synthetic/config/domain_constraints.yaml
+      - Terminology Mappings (YAML): ../synthetic/config/terminology_mappings.yaml
+      - Distribution Profiles (YAML): ../synthetic/config/distribution_profiles.yaml
+
+  - dbt Project:
+      - dbt Overview: metrics-layer.md
+      - Models:
+          - dim_patient: ../dbt/fhir_omop_dbt/models/marts/dim_patient.sql
+          - fact_chronic_condition: ../dbt/fhir_omop_dbt/models/marts/fact_chronic_condition.sql
+      - Metrics Layer: ../dbt/fhir_omop_dbt/models/metrics/metrics_chronic_condition.yml
+      - Lineage Macro: lineage-macro.md
+
+  - Iceberg Schema:
+      - Iceberg DDL Overview: iceberg-ddl.md
+      - person_iceberg: ../iceberg-ddl/person_iceberg.sql
+      - fhir_patient_flat_iceberg: ../iceberg-ddl/fhir_patient_flat_iceberg.sql
+
+  - Infrastructure as Code (CDK):
+      - CDK Stack Overview: architecture.md
+      - app.ts: ../cdk/bin/app.ts
+      - fhir-omop-stack.ts: ../cdk/lib/fhir-omop-stack.ts
+
+  - CI/CD:
+      - GitHub Actions:
+          - CDK Synth: ../.github/workflows/cdk-deploy.yml
+          - dbt Tests: ../.github/workflows/dbt-tests.yml
+          - Synthetic Smoke Test: ../.github/workflows/synthetic-smoke.yml
+
+  - API & Interfaces:
+      - API Specification: API_SPECIFICATION.md
+
+  - Releases & Contribution:
+      - Changelog: CHANGELOG.md
+      - Release Process: RELEASE.md
+      - Coding Standards: CODING_STANDARDS.md
+      - Contributing: CONTRIBUTING.md
+
+  - Docs Index:
+      - Summary (GitBook-style): SUMMARY.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
+
+plugins:
+  - search

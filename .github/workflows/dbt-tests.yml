@@ -1,0 +1,53 @@
+name: dbt Tests
+
+on:
+  pull_request:
+    paths:
+      - 'dbt/**'
+      - '.github/workflows/dbt-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  dbt-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dbt
+        run: |
+          python -m pip install --upgrade pip
+          pip install dbt-core dbt-athena-community
+
+      - name: Configure dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<'EOF'
+          fhir_omop:
+            target: dev
+            outputs:
+              dev:
+                type: athena
+                s3_staging_dir: "${{ secrets.ATHENA_S3_STAGING_DIR }}"
+                region_name: "${{ secrets.AWS_REGION }}"
+                schema: "fhir_omop"
+                database: "awsdatacatalog"
+                threads: 4
+          EOF
+
+      - name: dbt seed/run/test
+        working-directory: dbt/fhir_omop_dbt
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          dbt seed --select chronic_condition_concepts
+          dbt run --select stg_person stg_fhir_patient dim_patient fact_chronic_condition
+          dbt test --select dim_patient fact_chronic_condition

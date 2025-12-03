@@ -1,0 +1,5 @@
+flowchart LR
+GEN[Synthetic Generation] --> RAW[Raw S3]
+RAW --> ICE[Iceberg Tables]
+ICE --> DBT[dbt Models]
+DBT --> ATH[Athena / BI]

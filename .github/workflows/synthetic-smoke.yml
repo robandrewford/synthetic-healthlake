@@ -1,0 +1,29 @@
+name: Synthetic Pipeline Smoke Test
+
+on:
+  push:
+    paths:
+      - 'synthetic/**'
+      - '.github/workflows/synthetic-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  synthetic-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+
+      - name: Compile scripts
+        run: |
+          python -m compileall synthetic/scripts

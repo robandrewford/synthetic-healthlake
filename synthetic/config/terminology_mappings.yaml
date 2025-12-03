@@ -1,0 +1,8 @@
+version: 0.1
+concept_sets:
+  diagnosis:
+    core:
+      omop_concept_ids:
+        - 201826
+        - 320128
+        - 201254

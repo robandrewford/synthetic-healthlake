@@ -1,0 +1,49 @@
+flowchart TB
+
+  subgraph AWS["AWS Account"]
+    subgraph VPC["VPC"]
+      subgraph PUB["Public Subnets"]
+        ALB["Application Load Balancer"]
+      end
+      subgraph PRIV["Private Subnets"]
+        ECSCLUSTER["ECS Fargate Cluster"]
+        FARGATE_API["Fargate Service API"]
+        FARGATE_BATCH["Fargate Batch Tasks"]
+      end
+      IGW["Internet Gateway"]
+    end
+
+    subgraph DATA["Data & Metadata"]
+      S3DATA[("S3 Bucket\nFHIR/OMOP Data")]
+      GLUE["Glue Catalog"]
+      ATHENA["Athena"]
+    end
+
+    subgraph CONTROL["Access & Observability"]
+      IAM["IAM Roles"]
+      CW["CloudWatch Logs"]
+      CT["CloudTrail"]
+    end
+  end
+
+  IGW --- VPC
+  ALB --> FARGATE_API
+  FARGATE_API --> ECSCLUSTER
+  FARGATE_BATCH --> ECSCLUSTER
+  FARGATE_BATCH --> S3DATA
+  FARGATE_BATCH --> GLUE
+  FARGATE_API --> S3DATA
+  ATHENA --> GLUE
+  ATHENA --> S3DATA
+  IAM --> FARGATE_BATCH
+  IAM --> FARGATE_API
+  IAM --> ATHENA
+  IAM --> S3DATA
+  IAM --> GLUE
+  FARGATE_BATCH --> CW
+  FARGATE_API --> CW
+  ATHENA --> CW
+  CT --> IAM
+  CT --> S3DATA
+  CT --> GLUE
+  CT --> ATHENA

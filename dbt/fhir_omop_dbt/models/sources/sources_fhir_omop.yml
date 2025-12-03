@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: omop
+    schema: fhir_omop
+    tables:
+      - name: person_iceberg
+      - name: visit_occurrence_iceberg
+      - name: condition_occurrence_iceberg
+      - name: measurement_iceberg
+
+  - name: fhir
+    schema: fhir_omop
+    tables:
+      - name: fhir_patient_flat_iceberg
+      - name: fhir_encounter_flat_iceberg

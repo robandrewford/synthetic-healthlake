@@ -1,0 +1,10 @@
+fhir_omop:
+  target: dev
+  outputs:
+    dev:
+      type: athena
+      s3_staging_dir: "s3://your-athena-staging-bucket/dbt/"
+      region_name: "us-west-2"
+      schema: "fhir_omop"
+      database: "awsdatacatalog"
+      threads: 4

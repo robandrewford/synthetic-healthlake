@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: fact_chronic_condition
+    columns:
+      - name: person_id
+        tests:
+          - not_null
+      - name: chronic_condition_code
+        tests:
+          - not_null
