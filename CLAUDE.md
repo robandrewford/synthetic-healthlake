@@ -6,13 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **FHIR-OMOP Synthetic Stack** is an AWS-based reference architecture for generating, validating, and transforming synthetic healthcare data (FHIR + OMOP CDM) through a modern data lakehouse built on Apache Iceberg, Glue Catalog, Athena, and dbt.
 
-**Current Status**: ~40% complete for production, ~70% complete as learning/prototyping reference architecture. See `ACTION_PLAN.md` for comprehensive completion roadmap.
+**Current Status**: ~50% complete for production, ~75% complete as learning/prototyping reference architecture. See `ACTION_PLAN.md` for comprehensive completion roadmap.
 
-**Critical Known Issues**:
-- Syntax error in `synthetic/scripts/apply_domain_constraints.py:16` (invalid quote character)
-- Missing Python dependencies in `pyproject.toml` (pyyaml, pandas, faker, pyarrow, boto3, click)
-- Missing dbt staging model `stg_person.sql`
-- Many scripts are stubs without full implementation
+**Phases Completed**:
+- ✅ Phase 1: Fix Critical Bugs & Dependencies (Python syntax, dependencies, dbt models)
+- ✅ Phase 2: Complete Infrastructure Foundation (KMS, VPC endpoints, Step Functions, security)
+- 🚧 Phase 3: Implement Core Application Logic (in progress)
+
+**Current Known Issues**:
+- Synthetic data generators not yet implemented (stubs only)
+- ETL scripts (`flatten_fhir.py`, `omop_to_parquet.py`) missing
+- Validation scripts are stubs without full implementation
+- Configuration files are minimal examples
 
 ## Development Commands
 
@@ -40,7 +45,7 @@ cd cdk/
 npm install
 
 # Build TypeScript
-npm run build
+npx tsc
 
 # Synthesize CloudFormation
 npm run synth

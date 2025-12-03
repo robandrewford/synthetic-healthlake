@@ -1,15 +1,4 @@
-## Original TODOs (Pre-Action Plan)
-
-* Wire PIPELINE_RUN_ID into dbt runs from your ECS task definitions / Step Functions.
-  - **Status**: Covered in ACTION_PLAN.md Phase 4.6
-* Run mkdocs serve locally against this tree to validate the docs nav.
-  - **Status**: Covered in ACTION_PLAN.md Phase 6.10
-* Add a small example dbt model that explicitly uses different source_origin values for OMOP-only vs FHIR-only vs combined models.
-  - **Status**: Covered in ACTION_PLAN.md Phase 4.2 and 6.7
-
----
-
-## New Comprehensive Action Plan
+## Comprehensive Action Plan
 
 A complete action plan has been created to bring this repository to 100% completion as a reference architecture for learning and prototyping.
 

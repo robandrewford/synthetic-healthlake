@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  synthetic-generator:
+    build:
+      context: ..
+      dockerfile: docker/synthetic-generator/Dockerfile
+    environment:
+      - PIPELINE_RUN_ID=local-test
+      - PATIENT_COUNT=10
+    volumes:
+      - ../synthetic:/app/synthetic
+      - ../scripts:/app/scripts
+      - ./output:/tmp/output
+    command: /app/scripts/run_synthetic_pipeline.sh
+
+  dbt-runner:
+    build:
+      context: ..
+      dockerfile: docker/dbt-runner/Dockerfile
+    environment:
+      - PIPELINE_RUN_ID=local-test
+      - DBT_TARGET=dev
+    volumes:
+      - ../dbt/fhir_omop_dbt:/app/dbt/fhir_omop_dbt
+      - ../scripts:/app/scripts
+    command: /app/scripts/run_dbt_pipeline.sh
