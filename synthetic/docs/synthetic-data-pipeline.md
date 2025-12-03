@@ -8,7 +8,29 @@ terminology mappings, and statistical distributions.
 - Validate FHIR ↔ OMOP joins and analytics models.
 - Provide reusable synthetic cohorts for ML and dashboard prototyping.
 
-## 2. Layout
+## 2. Architecture
+
+### High-Level Data Flow
+
+::: mermaid
+graph LR
+GEN[Synthetic Generation] --> RAW[Raw S3]
+RAW --> ICE[Iceberg Tables]
+ICE --> DBT[dbt Models]
+DBT --> ATH[Athena / BI]
+:::
+
+### Infrastructure Architecture
+
+::: mermaid
+graph TB
+VPC[VPC] --> ECS[ECS Fargate]
+VPC --> S3[(S3 Data)]
+VPC --> GLUE[Glue Catalog]
+VPC --> ATH[Athena]
+:::
+
+## 3. Layout
 
 ```text
 synthetic/
@@ -24,7 +46,7 @@ synthetic/
     validate_cross_model.py
 ```
 
-## 3. Stages
+## 4. Stages
 
 1. **OMOP Generation (`generate_omop.py`)**
    - Produces OMOP tables (person, visit_occurrence, condition_occurrence, measurement).
@@ -35,7 +57,7 @@ synthetic/
 4. **Cross-Model Validation (`validate_cross_model.py`)**
    - Ensures OMOP and FHIR representations are consistent.
 
-## 4. Local Run
+## 5. Local Run
 
 ```bash
 make -C synthetic all
@@ -43,7 +65,7 @@ make -C synthetic all
 
 Outputs synthetic data into raw directories (or S3 when containerized).
 
-## 5. Orchestration on AWS
+## 6. Orchestration on AWS
 
 In the full architecture, each stage is an ECS Fargate task and the sequence:
 
