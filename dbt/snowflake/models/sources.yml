@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: raw
+    database: HEALTH_PLATFORM_DB
+    schema: RAW
+    tables:
+      - name: patients
+        description: Raw FHIR Patient data ingested from S3 via Snowpipe.

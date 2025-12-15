@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: stg_patient
+    description: Staged Patient data parsed from FHIR JSON.
+    columns:
+      - name: patient_id
+        description: Primary key of the patient.
+        tests:
+          - unique
+          - not_null
+      - name: gender
+        tests:
+          - accepted_values:
+              values: ['male', 'female', 'other', 'unknown']
