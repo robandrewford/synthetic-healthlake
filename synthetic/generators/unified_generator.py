@@ -19,7 +19,7 @@ class UnifiedGenerator:
     def __init__(self, seed: int = 42):
         """Initialize generator with seed for reproducibility."""
         self.fake = Faker()
-        Faker.seed(seed)
+        self.fake.seed_instance(seed)
         random.seed(seed)
         
         # OMOP concept mappings
@@ -163,7 +163,8 @@ class UnifiedGenerator:
 @click.option('--fhir-dir', required=True, type=click.Path(), help='Output directory for FHIR JSON')
 @click.option('--omop-dir', required=True, type=click.Path(), help='Output directory for OMOP Parquet')
 @click.option('--seed', default=42, help='Random seed for reproducibility')
-def main(count: int, fhir_dir: str, omop_dir: str, seed: int):
+@click.option('--format', type=click.Choice(['json', 'ndjson']), default='json', help='Output format for FHIR (json=Bundle, ndjson=Newline Delimited)')
+def main(count: int, fhir_dir: str, omop_dir: str, seed: int, format: str):
     """Generate correlated FHIR and OMOP synthetic datasets."""
     fhir_path = Path(fhir_dir)
     omop_path = Path(omop_dir)
@@ -190,15 +191,24 @@ def main(count: int, fhir_dir: str, omop_dir: str, seed: int):
         all_conditions.extend(generator.generate_conditions(person_id))
         all_measurements.extend(generator.generate_measurements(person_id))
     
-    # Write FHIR Bundle
-    fhir_bundle = {
-        "resourceType": "Bundle",
-        "type": "collection",
-        "entry": [{"resource": patient} for patient in fhir_patients]
-    }
-    bundle_file = fhir_path / "patients_bundle.json"
-    with bundle_file.open('w') as f:
-        json.dump(fhir_bundle, f, indent=2)
+    # Write FHIR Data
+    if format == 'ndjson':
+        ndjson_file = fhir_path / "patients.ndjson"
+        with ndjson_file.open('w') as f:
+            for patient in fhir_patients:
+                f.write(json.dumps(patient) + '\n')
+        click.echo(f"  FHIR: {ndjson_file} (NDJSON)")
+    else:
+        # Write FHIR Bundle
+        fhir_bundle = {
+            "resourceType": "Bundle",
+            "type": "collection",
+            "entry": [{"resource": patient} for patient in fhir_patients]
+        }
+        bundle_file = fhir_path / "patients_bundle.json"
+        with bundle_file.open('w') as f:
+            json.dump(fhir_bundle, f, indent=2)
+        click.echo(f"  FHIR: {bundle_file} (Bundle)")
     
     # Write OMOP tables
     person_df = pd.DataFrame(omop_persons)
@@ -213,7 +223,7 @@ def main(count: int, fhir_dir: str, omop_dir: str, seed: int):
         measurement_df.to_parquet(omop_path / 'measurement.parquet', index=False)
     
     click.echo(f"✓ Generated {count} correlated FHIR/OMOP persons")
-    click.echo(f"  FHIR: {bundle_file}")
+
     click.echo(f"  OMOP: {omop_path}")
     click.echo(f"  Conditions: {len(all_conditions)}")
     click.echo(f"  Measurements: {len(all_measurements)}")

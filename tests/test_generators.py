@@ -115,3 +115,31 @@ class TestUnifiedGenerator:
         
         assert fhir1['birthDate'] == fhir2['birthDate']
         assert omop1['year_of_birth'] == omop2['year_of_birth']
+
+
+from click.testing import CliRunner
+from synthetic.generators.unified_generator import main as unified_main
+
+class TestUnifiedCLI:
+    """Test Unified Generator CLI."""
+    
+    def test_ndjson_output(self, tmp_path):
+        """Test generating NDJSON output."""
+        runner = CliRunner()
+        result = runner.invoke(unified_main, [
+            '--count', '2',
+            '--fhir-dir', str(tmp_path / 'fhir'),
+            '--omop-dir', str(tmp_path / 'omop'),
+            '--format', 'ndjson'
+        ])
+        assert result.exit_code == 0
+        ndjson_file = tmp_path / 'fhir/patients.ndjson'
+        assert ndjson_file.exists()
+        
+        lines = ndjson_file.read_text().strip().split('\n')
+        assert len(lines) == 2
+        
+        # Verify each line is valid JSON
+        for line in lines:
+            data = json.loads(line)
+            assert data['resourceType'] == 'Patient'

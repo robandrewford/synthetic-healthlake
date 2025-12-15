@@ -16,7 +16,7 @@ class FHIRGenerator:
     def __init__(self, seed: int = 42):
         """Initialize generator with optional seed for reproducibility."""
         self.fake = Faker()
-        Faker.seed(seed)
+        self.fake.seed_instance(seed)
     
     def generate_patient(self, patient_id: int) -> Dict[str, Any]:
         """Generate a single FHIR Patient resource."""
@@ -76,7 +76,8 @@ class FHIRGenerator:
 @click.option('--output-dir', '-o', required=True, type=click.Path(), help='Output directory for FHIR JSON files')
 @click.option('--seed', default=42, help='Random seed for reproducibility')
 @click.option('--bundle/--individual', default=False, help='Output as FHIR Bundle or individual files')
-def main(count: int, output_dir: str, seed: int, bundle: bool):
+@click.option('--format', type=click.Choice(['json', 'ndjson']), default='json', help='Output format (json=individual/bundle, ndjson=NDJSON)')
+def main(count: int, output_dir: str, seed: int, bundle: bool, format: str):
     """Generate synthetic FHIR Patient resources."""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -84,7 +85,13 @@ def main(count: int, output_dir: str, seed: int, bundle: bool):
     generator = FHIRGenerator(seed=seed)
     patients = generator.generate_patients(count)
     
-    if bundle:
+    if format == 'ndjson':
+        ndjson_file = output_path / "patients.ndjson"
+        with ndjson_file.open('w') as f:
+            for patient in patients:
+                f.write(json.dumps(patient) + '\n')
+        click.echo(f"✓ Generated {count} patients in NDJSON: {ndjson_file}")
+    elif bundle:
         # Create FHIR Bundle
         fhir_bundle = {
             "resourceType": "Bundle",
