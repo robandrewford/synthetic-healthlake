@@ -1,6 +1,7 @@
 #!/usr/bin/env ts-node
 import * as cdk from 'aws-cdk-lib';
 import { FhirOmopStack } from '../lib/fhir-omop-stack';
+import { HealthPlatformStack } from '../lib/health-platform-stack';
 
 const app = new cdk.App();
 
@@ -10,3 +11,11 @@ new FhirOmopStack(app, 'FhirOmopStack', {
     region: process.env.CDK_DEFAULT_REGION || 'us-west-2'
   }
 });
+
+new HealthPlatformStack(app, 'HealthPlatformStack', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION || 'us-west-2'
+  }
+});
+
