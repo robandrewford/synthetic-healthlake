@@ -26,6 +26,22 @@ export class HealthPlatformStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
 
+        // ========================================================================
+        // Resource Tagging Strategy
+        // ========================================================================
+        // Apply tags to all resources in this stack for:
+        // - Cost allocation and tracking
+        // - Environment identification
+        // - Management and governance
+        const environment = props?.env?.account ? 'prod' : 'dev';
+
+        cdk.Tags.of(this).add('Project', 'fhir-omop-reference');
+        cdk.Tags.of(this).add('Environment', environment);
+        cdk.Tags.of(this).add('ManagedBy', 'CDK');
+        cdk.Tags.of(this).add('Application', 'health-platform');
+        cdk.Tags.of(this).add('CostCenter', 'healthcare-analytics');
+        cdk.Tags.of(this).add('Owner', 'platform-team');
+
         // Common Lambda code asset configuration
         const lambdaCodeExcludes = [
             'cdk', 'node_modules', '.git', '.venv', 'venv', '.beads',
