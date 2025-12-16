@@ -15,4 +15,3 @@
 - Review risks quarterly.
 - Add new risks during major architectural changes.
 - Close risks once mitigations are validated.
-

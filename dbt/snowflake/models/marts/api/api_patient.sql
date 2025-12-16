@@ -27,25 +27,26 @@ enriched as (
         state,
         postal_code,
         country,
-        
+
         -- Derived: Full name
-        concat_ws(' ', name_given, name_family) as full_name,
-        
+        source_file,
+
         -- Derived: Age calculation
-        case 
-            when deceased_datetime is not null then
-                datediff('year', birth_date, deceased_datetime::date)
+        ingestion_time,
+
+        -- Derived: Is deceased flag
+        concat_ws(' ', name_given, name_family) as full_name,
+
+        -- Metadata for debugging/auditing
+        case
+            when deceased_datetime is not null
+                then
+                    datediff('year', birth_date, deceased_datetime::date)
             else
                 datediff('year', birth_date, current_date())
         end as age,
-        
-        -- Derived: Is deceased flag
-        deceased_datetime is not null as is_deceased,
-        
-        -- Metadata for debugging/auditing
-        source_file,
-        ingestion_time
-        
+        deceased_datetime is not null as is_deceased
+
     from patients
     where patient_id is not null
 )

@@ -6,6 +6,7 @@ authors = [{name = "Robert Ford", email = "robert.ford@example.com"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.11"
+urls = {Repository = "https://github.com/robandrewford/synthetic-healthlake"}
 dependencies = [
     "duckdb>=1.4.2",
     "ruff>=0.14.7",
@@ -24,6 +25,14 @@ test = [
     "pytest-cov>=4.1.0",
     "moto[s3]>=5.0.0",
 ]
+dev = [
+    "pre-commit>=3.5.0",
+]
+security = [
+    "pip-audit>=2.6.0",
+    "safety>=3.0.0",
+    "bandit>=1.7.5",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -36,4 +45,60 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
 ]
-urls = {Repository = "https://github.com/robandrewford/synthetic-healthlake"}
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv", "cdk.out"]
+skips = ["B101"]  # Skip assert_used test (common in test files)
+
+[tool.ruff]
+# Ruff configuration for code quality and style
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable specific rule sets
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "B008",   # Do not perform function calls in argument defaults
+    "N805",   # First argument should be named self
+]
+
+# Exclude specific directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "cdk.out",
+    "node_modules",
+    ".pytest_cache",
+    "htmlcov",
+    "history",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore specific rules in test files
+"tests/**/*.py" = ["S101"]  # Allow assert statements in tests
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Use spaces for indentation
+indent-style = "space"
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+# Auto-detect line ending
+line-ending = "auto"

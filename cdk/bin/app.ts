@@ -18,4 +18,3 @@ new HealthPlatformStack(app, 'HealthPlatformStack', {
     region: process.env.CDK_DEFAULT_REGION || 'us-west-2'
   }
 });
-

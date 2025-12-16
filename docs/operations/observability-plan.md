@@ -38,4 +38,3 @@ Use SNS or EventBridge:
 - Pipeline failures
 - ECS task failures
 - Missing partitions or Iceberg metadata errors
-

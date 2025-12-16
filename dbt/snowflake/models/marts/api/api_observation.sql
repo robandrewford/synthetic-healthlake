@@ -14,14 +14,14 @@ with observations as (
 ),
 
 patients as (
-    select 
+    select
         patient_id,
         full_name as patient_name
     from {{ ref('api_patient') }}
 ),
 
 encounters as (
-    select 
+    select
         encounter_id,
         class_display as encounter_class
     from {{ ref('stg_encounter') }}
@@ -45,7 +45,7 @@ enriched as (
         o.effective_period_start,
         o.effective_period_end,
         o.issued,
-        
+
         -- Value fields (coalesced for easier API handling)
         o.value_quantity,
         o.value_unit,
@@ -53,40 +53,60 @@ enriched as (
         o.value_boolean,
         o.value_codeable_code,
         o.value_codeable_display,
-        
+
         -- Formatted value for display
-        case
-            when o.value_quantity is not null then
-                concat(o.value_quantity::string, ' ', coalesce(o.value_unit, ''))
-            when o.value_string is not null then
-                o.value_string
-            when o.value_boolean is not null then
-                case when o.value_boolean then 'Yes' else 'No' end
-            when o.value_codeable_display is not null then
-                o.value_codeable_display
-            else null
-        end as value_display,
-        
-        -- Reference range
         o.reference_range_low,
+
+        -- Reference range
         o.reference_range_high,
         o.reference_range_unit,
-        
-        -- Interpretation
         o.interpretation_code,
+
+        -- Interpretation
         o.interpretation_display,
-        
+        o.performer_id,
+
         -- Derived: Is abnormal flag
+        o.performer_display,
+
+        -- Derived: Category type for filtering
+        o.source_file,
+
+        -- Performer info
+        o.ingestion_time,
         case
-            when o.interpretation_code in ('H', 'HH', 'L', 'LL', 'A', 'AA') then true
-            when o.value_quantity is not null 
-                 and o.reference_range_low is not null 
-                 and o.reference_range_high is not null then
-                o.value_quantity < o.reference_range_low or o.value_quantity > o.reference_range_high
+            when o.value_quantity is not null
+                then
+                    concat(
+                        o.value_quantity::string,
+                        ' ',
+                        coalesce(o.value_unit, '')
+                    )
+            when o.value_string is not null
+                then
+                    o.value_string
+            when o.value_boolean is not null
+                then
+                    case when o.value_boolean then 'Yes' else 'No' end
+            when o.value_codeable_display is not null
+                then
+                    o.value_codeable_display
+        end as value_display,
+
+        -- Metadata
+        case
+            when
+                o.interpretation_code in ('H', 'HH', 'L', 'LL', 'A', 'AA')
+                then true
+            when
+                o.value_quantity is not null
+                and o.reference_range_low is not null
+                and o.reference_range_high is not null
+                then
+                    o.value_quantity < o.reference_range_low
+                    or o.value_quantity > o.reference_range_high
             else false
         end as is_abnormal,
-        
-        -- Derived: Category type for filtering
         case
             when o.category_code = 'vital-signs' then 'vital-signs'
             when o.category_code = 'laboratory' then 'laboratory'
@@ -97,19 +117,11 @@ enriched as (
             when o.category_code = 'therapy' then 'therapy'
             when o.category_code = 'activity' then 'activity'
             else 'other'
-        end as category_type,
-        
-        -- Performer info
-        o.performer_id,
-        o.performer_display,
-        
-        -- Metadata
-        o.source_file,
-        o.ingestion_time
-        
-    from observations o
-    left join patients p on o.patient_id = p.patient_id
-    left join encounters e on o.encounter_id = e.encounter_id
+        end as category_type
+
+    from observations as o
+    left join patients as p on o.patient_id = p.patient_id
+    left join encounters as e on o.encounter_id = e.encounter_id
     where o.observation_id is not null
 )
 

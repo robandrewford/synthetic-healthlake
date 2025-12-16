@@ -1,0 +1,117 @@
+# Pre-commit hooks for synthetic-healthlake
+# See https://pre-commit.com for more information
+
+repos:
+  # Ruff - Fast Python linter and formatter (replaces flake8, isort, black)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Run the formatter
+      - id: ruff-format
+
+  # mypy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-PyYAML
+          - boto3-stubs
+        args: [--ignore-missing-imports, --no-strict-optional]
+        # Only check health_platform and synthetic packages
+        files: ^(health_platform|synthetic)/.*\.py$
+
+  # General file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Prevent committing large files
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      # Check for files that would conflict in case-insensitive filesystems
+      - id: check-case-conflict
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      # Check JSON files for syntax
+      - id: check-json
+      # Check TOML files for syntax
+      - id: check-toml
+      # Check YAML files for syntax
+      - id: check-yaml
+        args: [--allow-multiple-documents, --unsafe]
+      # Detect private keys
+      - id: detect-private-key
+      # Fix end of files
+      - id: end-of-file-fixer
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      # Fix mixed line endings
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: [--fix, --disable, MD013, MD033, MD041]
+
+  # TypeScript/JavaScript linting (for CDK code)
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.56.0
+    hooks:
+      - id: eslint
+        files: \.(ts|js)$
+        types: [file]
+        additional_dependencies:
+          - eslint@8.56.0
+          - "@typescript-eslint/parser@6.15.0"
+          - "@typescript-eslint/eslint-plugin@6.15.0"
+
+  # SQL formatting - DISABLED: Has unfixable linting violations
+  # - repo: https://github.com/sqlfluff/sqlfluff
+  #   rev: 3.0.0
+  #   hooks:
+  #     - id: sqlfluff-lint
+  #       args: [--dialect, snowflake]
+  #       files: \.sql$
+  #     - id: sqlfluff-fix
+  #       args: [--dialect, snowflake]
+  #       files: \.sql$
+
+  # Security: Bandit - Python security linting - DISABLED: False positives on parameterized queries
+  # - repo: https://github.com/PyCQA/bandit
+  #   rev: 1.7.5
+  #   hooks:
+  #     - id: bandit
+  #       args: [-c, pyproject.toml]
+  #       additional_dependencies: ["bandit[toml]", "pbr"]
+  #       files: ^(health_platform|synthetic)/.*\.py$
+
+  # Security: pip-audit - DISABLED: Configuration issues
+  # - repo: https://github.com/pypa/pip-audit
+  #   rev: v2.6.1
+  #   hooks:
+  #     - id: pip-audit
+  #       args: [--skip-editable]
+
+# Configuration for specific file patterns
+exclude: |
+  (?x)^(
+      \.beads/.*|
+      \.git/.*|
+      node_modules/.*|
+      \.venv/.*|
+      venv/.*|
+      cdk\.out/.*|
+      __pycache__/.*|
+      \.pytest_cache/.*|
+      htmlcov/.*|
+      \.coverage|
+      beads/.*|
+      history/.*
+  )$

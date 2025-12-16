@@ -10,3 +10,6 @@ dbt/fhir_omop_dbt/logs/
 cdk/cdk.out/
 .idea/
 .vscode/
+
+# Security scan reports
+security-reports/

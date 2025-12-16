@@ -1,18 +1,20 @@
 import os
+from typing import Any
+
 import snowflake.connector
-from typing import List, Dict, Any, Optional
+
 
 class SnowflakeConnection:
     """Wrapper for Snowflake Connection."""
-    
+
     def __init__(self):
-        self.user = os.environ.get('DB_USER')
-        self.password = os.environ.get('DB_PASSWORD')
-        self.account = os.environ.get('DB_ACCOUNT')
-        self.warehouse = os.environ.get('DB_WAREHOUSE')
-        self.database = os.environ.get('DB_DATABASE')
-        self.schema = os.environ.get('DB_SCHEMA')
-        
+        self.user = os.environ.get("DB_USER")
+        self.password = os.environ.get("DB_PASSWORD")
+        self.account = os.environ.get("DB_ACCOUNT")
+        self.warehouse = os.environ.get("DB_WAREHOUSE")
+        self.database = os.environ.get("DB_DATABASE")
+        self.schema = os.environ.get("DB_SCHEMA")
+
         if not all([self.user, self.password, self.account]):
             raise ValueError("Missing required DB environment variables")
 
@@ -23,10 +25,11 @@ class SnowflakeConnection:
             account=self.account,
             warehouse=self.warehouse,
             database=self.database,
-            schema=self.schema
+            schema=self.schema,
         )
 
-def execute_query(sql: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
+
+def execute_query(sql: str, params: tuple | None = None) -> list[dict[str, Any]]:
     """
     Execute a query and return results as list of dicts.
     """

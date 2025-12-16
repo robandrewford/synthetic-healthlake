@@ -28,4 +28,3 @@
 - Indentation: 2 spaces.
 - Use lowercase field names.
 - Keep mappings and constraints in separate config files.
-

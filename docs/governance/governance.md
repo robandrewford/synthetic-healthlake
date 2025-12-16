@@ -26,4 +26,3 @@ This document defines how decisions are made in the FHIR-OMOP Synthetic Stack pr
 
 ## 5. Release Ownership
 - Only maintainers may cut releases and tag versions.
-

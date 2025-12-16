@@ -36,18 +36,18 @@ logger = logging.getLogger(__name__)
 class SnowflakeClient:
     """
     Snowflake connection manager for API Lambda functions.
-    
+
     Features:
     - Lazy credential loading from Secrets Manager
     - Connection reuse across Lambda invocations (warm start)
     - Organization-scoped query execution
     """
-    
+
     def __init__(self):
         self.secrets_client = boto3.client('secretsmanager')
         self._credentials: Optional[dict] = None
         self._connection: Optional[SnowflakeConnection] = None
-    
+
     @property
     def credentials(self) -> dict:
         """
@@ -56,17 +56,17 @@ class SnowflakeClient:
         """
         if self._credentials is None:
             secret_arn = os.environ.get('SNOWFLAKE_SECRET_ARN')
-            
+
             if not secret_arn:
                 raise SecurityError("SNOWFLAKE_SECRET_ARN not configured")
-            
+
             logger.info("Loading Snowflake credentials from Secrets Manager")
-            
+
             secret = self.secrets_client.get_secret_value(SecretId=secret_arn)
             self._credentials = json.loads(secret['SecretString'])
-        
+
         return self._credentials
-    
+
     def get_connection(self) -> SnowflakeConnection:
         """
         Get or create Snowflake connection.
@@ -74,7 +74,7 @@ class SnowflakeClient:
         """
         if self._connection is None or self._connection.is_closed():
             logger.info("Creating new Snowflake connection")
-            
+
             self._connection = snowflake.connector.connect(
                 account=self.credentials['account'],
                 user=self.credentials['user'],
@@ -88,25 +88,25 @@ class SnowflakeClient:
                 network_timeout=30,
                 login_timeout=30
             )
-        
+
         return self._connection
-    
+
     @contextmanager
     def scoped_connection(
-        self, 
+        self,
         org_context: OrganizationContext
     ) -> Generator[OrganizationScopedQuery, None, None]:
         """
         Yield organization-scoped query executor.
-        
+
         Args:
             org_context: Organization context from authorizer
-        
+
         Yields:
             OrganizationScopedQuery for executing org-filtered queries
         """
         conn = self.get_connection()
-        
+
         try:
             yield OrganizationScopedQuery(conn, org_context)
         except Exception as e:
@@ -115,7 +115,7 @@ class SnowflakeClient:
                 extra=org_context.to_log_context()
             )
             raise
-    
+
     def close(self) -> None:
         """Close connection (called on Lambda shutdown)."""
         if self._connection and not self._connection.is_closed():
@@ -165,17 +165,17 @@ def get_patient(
 ) -> Optional[Dict[str, Any]]:
     """
     Retrieve single patient by ID (token).
-    
+
     Args:
         patient_id: Patient token (not PHI)
         org_context: Organization context
-    
+
     Returns:
         FHIR Patient resource or None if not found
     """
-    
+
     query = """
-    SELECT 
+    SELECT
         patient_token AS id,
         gender,
         birth_date,
@@ -186,18 +186,18 @@ def get_patient(
     WHERE patient_token = %(patient_id)s
       AND organization_id = %(organization_id)s
     """
-    
+
     client = get_client()
     with client.scoped_connection(org_context) as db:
         row = db.execute_one(query, {'patient_id': patient_id})
-    
+
     if not row:
         logger.info(
             f"Patient not found: {patient_id}",
             extra=org_context.to_log_context()
         )
         return None
-    
+
     return format_patient_resource(row)
 
 
@@ -212,7 +212,7 @@ def search_patients(
 ) -> Dict[str, Any]:
     """
     Search patients with FHIR search parameters.
-    
+
     Args:
         org_context: Organization context
         identifier: External identifier (MRN)
@@ -221,14 +221,14 @@ def search_patients(
         name: Name search (partial match)
         _count: Max results to return
         _offset: Pagination offset
-    
+
     Returns:
         FHIR Bundle with matching patients
     """
-    
+
     # Base query - always filtered by organization
     query = """
-    SELECT 
+    SELECT
         patient_token AS id,
         gender,
         birth_date,
@@ -238,45 +238,45 @@ def search_patients(
     FROM analytics.dim_patient
     WHERE organization_id = %(organization_id)s
     """
-    
+
     params: Dict[str, Any] = {}
-    
+
     # Add optional filters
     if identifier:
         query += " AND external_identifier = %(identifier)s"
         params['identifier'] = identifier
-    
+
     if gender:
         query += " AND gender = %(gender)s"
         params['gender'] = gender.lower()
-    
+
     if birthdate:
         query += " AND birth_date = %(birthdate)s"
         params['birthdate'] = birthdate
-    
+
     if name:
         # Name search against de-identified index
         # Note: Full names are not in analytics schema
         query += " AND name_search_index ILIKE %(name_pattern)s"
         params['name_pattern'] = f"%{name}%"
-    
+
     # Add ordering and pagination
     query += " ORDER BY updated_at DESC LIMIT %(limit)s OFFSET %(offset)s"
     params['limit'] = min(_count, 1000)  # Cap at 1000
     params['offset'] = _offset
-    
+
     client = get_client()
     with client.scoped_connection(org_context) as db:
         results = db.execute(query, params)
-    
+
     # Format as FHIR resources
     patients = [format_patient_resource(row) for row in results]
-    
+
     logger.info(
         f"Patient search returned {len(patients)} results",
         extra=org_context.to_log_context()
     )
-    
+
     return create_bundle(patients, bundle_type='searchset')
 ```
 
@@ -310,17 +310,17 @@ def get_encounter(
 ) -> Optional[Dict[str, Any]]:
     """
     Retrieve single encounter by ID.
-    
+
     Args:
         encounter_id: Encounter token
         org_context: Organization context
-    
+
     Returns:
         FHIR Encounter resource or None
     """
-    
+
     query = """
-    SELECT 
+    SELECT
         e.encounter_token AS id,
         e.patient_token AS patient_id,
         e.status,
@@ -334,14 +334,14 @@ def get_encounter(
     WHERE e.encounter_token = %(encounter_id)s
       AND e.organization_id = %(organization_id)s
     """
-    
+
     client = get_client()
     with client.scoped_connection(org_context) as db:
         row = db.execute_one(query, {'encounter_id': encounter_id})
-    
+
     if not row:
         return None
-    
+
     return format_encounter_resource(row)
 
 
@@ -355,7 +355,7 @@ def search_encounters(
 ) -> Dict[str, Any]:
     """
     Search encounters with FHIR search parameters.
-    
+
     Args:
         org_context: Organization context
         patient: Patient token
@@ -363,13 +363,13 @@ def search_encounters(
         date: Encounter date (YYYY-MM-DD)
         _count: Max results
         _offset: Pagination offset
-    
+
     Returns:
         FHIR Bundle with matching encounters
     """
-    
+
     query = """
-    SELECT 
+    SELECT
         e.encounter_token AS id,
         e.patient_token AS patient_id,
         e.status,
@@ -381,31 +381,31 @@ def search_encounters(
     FROM analytics.fct_encounter e
     WHERE e.organization_id = %(organization_id)s
     """
-    
+
     params: Dict[str, Any] = {}
-    
+
     if patient:
         query += " AND e.patient_token = %(patient)s"
         params['patient'] = patient
-    
+
     if status:
         query += " AND e.status = %(status)s"
         params['status'] = status
-    
+
     if date:
         query += " AND DATE(e.period_start) = %(date)s"
         params['date'] = date
-    
+
     query += " ORDER BY e.period_start DESC LIMIT %(limit)s OFFSET %(offset)s"
     params['limit'] = min(_count, 1000)
     params['offset'] = _offset
-    
+
     client = get_client()
     with client.scoped_connection(org_context) as db:
         results = db.execute(query, params)
-    
+
     encounters = [format_encounter_resource(row) for row in results]
-    
+
     return create_bundle(encounters, bundle_type='searchset')
 
 
@@ -417,13 +417,13 @@ def get_patient_encounters(
 ) -> Dict[str, Any]:
     """
     Get all encounters for a specific patient.
-    
+
     Args:
         patient_id: Patient token
         org_context: Organization context
         _count: Max results
         _offset: Pagination offset
-    
+
     Returns:
         FHIR Bundle with patient's encounters
     """
@@ -464,17 +464,17 @@ def get_observation(
 ) -> Optional[Dict[str, Any]]:
     """
     Retrieve single observation by ID.
-    
+
     Args:
         observation_id: Observation token
         org_context: Organization context
-    
+
     Returns:
         FHIR Observation resource or None
     """
-    
+
     query = """
-    SELECT 
+    SELECT
         o.observation_token AS id,
         o.patient_token AS patient_id,
         o.encounter_token AS encounter_id,
@@ -490,14 +490,14 @@ def get_observation(
     WHERE o.observation_token = %(observation_id)s
       AND o.organization_id = %(organization_id)s
     """
-    
+
     client = get_client()
     with client.scoped_connection(org_context) as db:
         row = db.execute_one(query, {'observation_id': observation_id})
-    
+
     if not row:
         return None
-    
+
     return format_observation_resource(row)
 
 
@@ -512,7 +512,7 @@ def search_observations(
 ) -> Dict[str, Any]:
     """
     Search observations with FHIR search parameters.
-    
+
     Args:
         org_context: Organization context
         patient: Patient token
@@ -521,13 +521,13 @@ def search_observations(
         category: Observation category
         _count: Max results
         _offset: Pagination offset
-    
+
     Returns:
         FHIR Bundle with matching observations
     """
-    
+
     query = """
-    SELECT 
+    SELECT
         o.observation_token AS id,
         o.patient_token AS patient_id,
         o.encounter_token AS encounter_id,
@@ -542,13 +542,13 @@ def search_observations(
     FROM analytics.fct_observation o
     WHERE o.organization_id = %(organization_id)s
     """
-    
+
     params: Dict[str, Any] = {}
-    
+
     if patient:
         query += " AND o.patient_token = %(patient)s"
         params['patient'] = patient
-    
+
     if code:
         # Support single code or comma-separated list
         codes = [c.strip() for c in code.split(',')]
@@ -558,30 +558,30 @@ def search_observations(
         else:
             query += " AND o.loinc_code IN %(codes)s"
             params['codes'] = tuple(codes)
-    
+
     if date:
         query += " AND DATE(o.effective_datetime) = %(date)s"
         params['date'] = date
-    
+
     if category:
         query += " AND o.category = %(category)s"
         params['category'] = category
-    
+
     query += " ORDER BY o.effective_datetime DESC LIMIT %(limit)s OFFSET %(offset)s"
     params['limit'] = min(_count, 1000)
     params['offset'] = _offset
-    
+
     client = get_client()
     with client.scoped_connection(org_context) as db:
         results = db.execute(query, params)
-    
+
     observations = [format_observation_resource(row) for row in results]
-    
+
     logger.info(
         f"Observation search returned {len(observations)} results",
         extra=org_context.to_log_context()
     )
-    
+
     return create_bundle(observations, bundle_type='searchset')
 ```
 
@@ -626,7 +626,7 @@ logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
     """
     API Gateway proxy integration handler.
-    
+
     Routes:
         GET /v1/fhir/Patient/{id} -> patient.get_patient
         GET /v1/fhir/Patient -> patient.search_patients
@@ -635,21 +635,21 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         GET /v1/fhir/Observation/{id} -> observation.get_observation
         GET /v1/fhir/Observation -> observation.search_observations
     """
-    
+
     # Extract request details
     http_method = event.get('httpMethod', 'GET')
     path = event.get('path', '')
     path_params = event.get('pathParameters') or {}
     query_params = extract_query_parameters(event)
-    
+
     request_id = event.get('requestContext', {}).get('requestId', 'unknown')
-    
+
     logger.info(f"Processing {http_method} {path}", extra={'request_id': request_id})
-    
+
     try:
         # Extract organization context from authorizer
         org_context = extract_org_context(event)
-        
+
         # Route to appropriate handler
         result = route_request(
             http_method=http_method,
@@ -658,26 +658,26 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             query_params=query_params,
             org_context=org_context
         )
-        
+
         if result is None:
             return error_response(404, 'not-found', 'Resource not found', request_id)
-        
+
         return success_response(200, result, request_id)
-    
+
     except AuthenticationError as e:
         logger.warning(f"Authentication error: {e}")
         return error_response(401, 'login', str(e), request_id)
-    
+
     except SecurityError as e:
         logger.error(f"Security error: {e}")
         return error_response(403, 'forbidden', str(e), request_id)
-    
+
     except ResourceNotFoundError as e:
         return error_response(404, 'not-found', str(e), request_id)
-    
+
     except ValidationError as e:
         return error_response(400, 'invalid', str(e), request_id)
-    
+
     except Exception as e:
         logger.exception(f"Unhandled error: {e}")
         return error_response(500, 'exception', 'Internal server error', request_id)
@@ -693,18 +693,18 @@ def route_request(
     """
     Route request to appropriate handler based on path.
     """
-    
+
     # Normalize path
     path = path.rstrip('/')
-    
+
     # Extract pagination params
     _count = int(query_params.get('_count', 100))
     _offset = int(query_params.get('_offset', 0))
-    
+
     # Patient routes
     if '/Patient' in path:
         resource_id = path_params.get('id')
-        
+
         if http_method == 'GET':
             if resource_id:
                 # GET /v1/fhir/Patient/{id}
@@ -720,11 +720,11 @@ def route_request(
                     _count=_count,
                     _offset=_offset
                 )
-    
+
     # Encounter routes
     elif '/Encounter' in path:
         resource_id = path_params.get('id')
-        
+
         if http_method == 'GET':
             if resource_id:
                 # GET /v1/fhir/Encounter/{id}
@@ -739,11 +739,11 @@ def route_request(
                     _count=_count,
                     _offset=_offset
                 )
-    
+
     # Observation routes
     elif '/Observation' in path:
         resource_id = path_params.get('id')
-        
+
         if http_method == 'GET':
             if resource_id:
                 # GET /v1/fhir/Observation/{id}
@@ -759,7 +759,7 @@ def route_request(
                     _count=_count,
                     _offset=_offset
                 )
-    
+
     # Unknown route
     raise ValidationError(f"Unknown endpoint: {path}")
 
@@ -788,10 +788,10 @@ def error_response(
     request_id: str
 ) -> Dict[str, Any]:
     """Format error API response as FHIR OperationOutcome."""
-    
+
     severity = 'error' if status_code >= 400 else 'warning'
     outcome = create_operation_outcome(severity, code, message)
-    
+
     return {
         'statusCode': status_code,
         'headers': {

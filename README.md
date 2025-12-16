@@ -71,6 +71,7 @@ graph TB
 - **Python 3.11+**
 - **uv** (recommended) or pip
 - **Docker** (optional, for local testing)
+- **bd (beads) CLI** for issue tracking - See [Installation Guide](docs/development/beads-installation.md)
 
 ## Quick Start
 

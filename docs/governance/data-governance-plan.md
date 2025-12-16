@@ -37,4 +37,3 @@ All project data is classified as:
 - CloudWatch for logs and metrics.
 - Athena usage logs for query audits.
 - Step Functions logs pipeline outcomes.
-

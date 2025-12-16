@@ -10,9 +10,20 @@ on:
 jobs:
   dbt-tests:
     runs-on: ubuntu-latest
+    # OIDC permissions for AWS authentication
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-dbt-tests
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -42,11 +53,7 @@ jobs:
 
       - name: dbt seed/run/test
         working-directory: dbt/fhir_omop_dbt
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+        # AWS credentials automatically available from OIDC step
         run: |
           dbt seed --select chronic_condition_concepts
           dbt run --select stg_person stg_fhir_patient dim_patient fact_chronic_condition

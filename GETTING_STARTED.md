@@ -2,6 +2,23 @@
 
 This guide helps you begin implementing the ACTION_PLAN.md to achieve 100% completion.
 
+## Prerequisites
+
+### Install Beads CLI
+
+This project uses `bd` (beads) for issue tracking. Install it first:
+
+```bash
+# Quick install (macOS/Linux)
+curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+# Verify installation
+bd --version
+bd status
+```
+
+**See [docs/development/beads-installation.md](docs/development/beads-installation.md) for detailed installation instructions and troubleshooting.**
+
 ## Step 1: Set Up Project Tracking
 
 ### Option A: GitHub Projects (Recommended)

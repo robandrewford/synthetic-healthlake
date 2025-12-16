@@ -1,0 +1,192 @@
+# GitHub Actions OIDC IAM Role CloudFormation Template
+#
+# This template creates an IAM role that GitHub Actions can assume using OIDC,
+# replacing the need for long-lived AWS credentials stored in GitHub Secrets.
+#
+# Deploy this template ONCE per AWS account:
+#   aws cloudformation create-stack \
+#     --stack-name github-actions-oidc-role \
+#     --template-body file://.github/oidc-role.yml \
+#     --parameters ParameterKey=GitHubOrg,ParameterValue=robandrewford \
+#                  ParameterKey=GitHubRepo,ParameterValue=synthetic-healthlake \
+#     --capabilities CAPABILITY_IAM
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Role for GitHub Actions OIDC Authentication'
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization or username
+    Default: robandrewford
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: synthetic-healthlake
+
+  OIDCProviderArn:
+    Type: String
+    Description: ARN of the GitHub OIDC Provider (leave empty to create new)
+    Default: ''
+
+Conditions:
+  CreateOIDCProvider: !Equals [!Ref OIDCProviderArn, '']
+
+Resources:
+  # GitHub OIDC Provider (only created if not already exists)
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Tags:
+        - Key: Name
+          Value: github-actions-oidc-provider
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # IAM Role for GitHub Actions
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${GitHubRepo}-github-actions-role'
+      Description: !Sub 'OIDC role for GitHub Actions in ${GitHubOrg}/${GitHubRepo}'
+      MaxSessionDuration: 3600  # 1 hour
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateOIDCProvider
+                - !GetAtt GitHubOIDCProvider.Arn
+                - !Ref OIDCProviderArn
+            Action: 'sts:AssumeRoleWithWebIdentity'
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
+              StringLike:
+                # Allow only this specific repository
+                'token.actions.githubusercontent.com:sub': !Sub 'repo:${GitHubOrg}/${GitHubRepo}:*'
+      ManagedPolicyArns:
+        # Attach necessary AWS managed policies
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Policies:
+        # Custom inline policy for specific permissions
+        - PolicyName: GitHubActionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # S3 Permissions for data lake
+              - Sid: S3DataLakeAccess
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::${GitHubRepo}-*'
+                  - !Sub 'arn:aws:s3:::${GitHubRepo}-*/*'
+
+              # Athena Permissions for dbt
+              - Sid: AthenaQueryAccess
+                Effect: Allow
+                Action:
+                  - athena:StartQueryExecution
+                  - athena:GetQueryExecution
+                  - athena:GetQueryResults
+                  - athena:StopQueryExecution
+                  - athena:GetWorkGroup
+                Resource:
+                  - !Sub 'arn:aws:athena:*:${AWS::AccountId}:workgroup/*'
+
+              # Glue Permissions for dbt
+              - Sid: GlueCatalogAccess
+                Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                  - glue:DeleteTable
+                  - glue:CreateDatabase
+                Resource:
+                  - !Sub 'arn:aws:glue:*:${AWS::AccountId}:catalog'
+                  - !Sub 'arn:aws:glue:*:${AWS::AccountId}:database/*'
+                  - !Sub 'arn:aws:glue:*:${AWS::AccountId}:table/*/*'
+
+              # CloudFormation (for CDK deploy - optional)
+              - Sid: CloudFormationAccess
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:GetTemplate
+                Resource:
+                  - !Sub 'arn:aws:cloudformation:*:${AWS::AccountId}:stack/${GitHubRepo}-*/*'
+
+              # IAM (for CDK deploy - limited)
+              - Sid: IAMReadAccess
+                Effect: Allow
+                Action:
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${GitHubRepo}-*'
+
+              # Lambda (for function deployment - optional)
+              - Sid: LambdaReadAccess
+                Effect: Allow
+                Action:
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                Resource:
+                  - !Sub 'arn:aws:lambda:*:${AWS::AccountId}:function:${GitHubRepo}-*'
+      Tags:
+        - Key: Project
+          Value: !Ref GitHubRepo
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: Purpose
+          Value: GitHubActionsOIDC
+
+Outputs:
+  RoleArn:
+    Description: ARN of the IAM Role for GitHub Actions
+    Value: !GetAtt GitHubActionsRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn'
+
+  OIDCProviderArn:
+    Description: ARN of the GitHub OIDC Provider
+    Value: !If
+      - CreateOIDCProvider
+      - !GetAtt GitHubOIDCProvider.Arn
+      - !Ref OIDCProviderArn
+    Export:
+      Name: !Sub '${AWS::StackName}-OIDCProviderArn'
+
+  SetupInstructions:
+    Description: Next steps to configure GitHub Actions
+    Value: !Sub |
+      1. Copy the Role ARN: ${GitHubActionsRole.Arn}
+      2. Update GitHub Actions workflows to use OIDC authentication
+      3. Remove AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from GitHub Secrets
+      4. See .github/OIDC_SETUP.md for detailed instructions

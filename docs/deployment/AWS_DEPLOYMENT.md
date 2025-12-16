@@ -10,7 +10,7 @@ This guide walks you through deploying the synthetic-healthlake stack to AWS usi
 - Appropriate IAM permissions (see below)
 
 ### Local Tools
-- Node.js 20+ 
+- Node.js 20+
 - AWS CDK CLI: `npm install -g aws-cdk`
 - Python 3.11+
 - Docker (for building container images)
@@ -178,7 +178,7 @@ SELECT * FROM dim_patient LIMIT 10;
 SELECT * FROM fact_chronic_condition LIMIT 10;
 
 -- Count by condition
-SELECT 
+SELECT
   chronic_condition_name,
   COUNT(*) as patient_count
 FROM fact_chronic_condition

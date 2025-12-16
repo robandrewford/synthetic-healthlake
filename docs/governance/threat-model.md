@@ -51,4 +51,3 @@ Not applicable (synthetic only), but:
 **Mitigations:**  
 - Continue enforcing synthetic-only data  
 - Add schema guards  
-

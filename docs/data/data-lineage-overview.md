@@ -40,4 +40,3 @@ For full observability, integrate with:
 - OpenLineage  
 - Marquez  
 - or custom dashboards using Athena views  
-

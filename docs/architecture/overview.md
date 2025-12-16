@@ -43,4 +43,3 @@ This document summarizes the end-to-end architecture for the FHIR-OMOP Synthetic
 
 ## 4. Diagram
 Architecture diagrams are located in `docs/diagrams/`.
-

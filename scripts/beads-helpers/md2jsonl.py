@@ -19,9 +19,9 @@ Usage:
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 class MarkdownToIssues:
@@ -30,45 +30,41 @@ class MarkdownToIssues:
     def __init__(self, prefix: str = "bd"):
         self.prefix = prefix
         self.issue_counter = 1
-        self.issues: List[Dict[str, Any]] = []
+        self.issues: list[dict[str, Any]] = []
 
-    def parse_frontmatter(self, content: str) -> tuple[Optional[Dict], str]:
+    def parse_frontmatter(self, content: str) -> tuple[dict | None, str]:
         """Extract YAML frontmatter if present."""
         # Simple frontmatter detection (--- ... ---)
-        if not content.startswith('---\n'):
+        if not content.startswith("---\n"):
             return None, content
 
-        end = content.find('\n---\n', 4)
+        end = content.find("\n---\n", 4)
         if end == -1:
             return None, content
 
         frontmatter_text = content[4:end]
-        body = content[end + 5:]
+        body = content[end + 5 :]
 
         # Parse simple YAML (key: value)
         metadata = {}
-        for line in frontmatter_text.split('\n'):
+        for line in frontmatter_text.split("\n"):
             line = line.strip()
-            if ':' in line:
-                key, value = line.split(':', 1)
+            if ":" in line:
+                key, value = line.split(":", 1)
                 metadata[key.strip()] = value.strip()
 
         return metadata, body
 
     def extract_issue_from_heading(
-        self,
-        heading: str,
-        level: int,
-        content: str,
-        metadata: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        self, heading: str, level: int, content: str, metadata: dict | None = None
+    ) -> dict[str, Any]:
         """Create an issue from a markdown heading and its content."""
         # Generate ID
         issue_id = f"{self.prefix}-{self.issue_counter}"
         self.issue_counter += 1
 
         # Extract title (remove markdown formatting)
-        title = heading.strip('#').strip()
+        title = heading.strip("#").strip()
 
         # Parse metadata from frontmatter or defaults
         if metadata is None:
@@ -82,8 +78,8 @@ class MarkdownToIssues:
             "status": metadata.get("status", "open"),
             "priority": int(metadata.get("priority", 2)),
             "issue_type": metadata.get("type", "task"),
-            "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            "updated_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+            "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
 
         # Optional fields
@@ -100,38 +96,40 @@ class MarkdownToIssues:
 
         return issue
 
-    def extract_dependencies(self, text: str) -> List[Dict[str, str]]:
+    def extract_dependencies(self, text: str) -> list[dict[str, str]]:
         """Extract dependency references from text."""
         dependencies = []
 
         # Pattern: "blocks: bd-10" or "depends-on: bd-5, bd-6"
         # Pattern: "discovered-from: bd-20"
-        dep_pattern = r'(blocks|related|parent-child|discovered-from):\s*((?:bd-\d+(?:\s*,\s*)?)+)'
+        dep_pattern = r"(blocks|related|parent-child|discovered-from):\s*((?:bd-\d+(?:\s*,\s*)?)+)"
 
         for match in re.finditer(dep_pattern, text, re.IGNORECASE):
             dep_type = match.group(1).lower()
-            dep_ids = [id.strip() for id in match.group(2).split(',')]
+            dep_ids = [id.strip() for id in match.group(2).split(",")]
 
             for dep_id in dep_ids:
-                dependencies.append({
-                    "issue_id": "",  # Will be filled by import
-                    "depends_on_id": dep_id.strip(),
-                    "type": dep_type
-                })
+                dependencies.append(
+                    {
+                        "issue_id": "",  # Will be filled by import
+                        "depends_on_id": dep_id.strip(),
+                        "type": dep_type,
+                    }
+                )
 
         return dependencies
 
-    def parse_task_list(self, content: str) -> List[Dict[str, Any]]:
+    def parse_task_list(self, content: str) -> list[dict[str, Any]]:
         """Extract task list items as separate issues."""
         issues = []
 
         # Pattern: - [ ] Task or - [x] Task
-        task_pattern = r'^-\s+\[([ x])\]\s+(.+)$'
+        task_pattern = r"^-\s+\[([ x])\]\s+(.+)$"
 
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             match = re.match(task_pattern, line.strip())
             if match:
-                is_done = match.group(1) == 'x'
+                is_done = match.group(1) == "x"
                 task_text = match.group(2)
 
                 issue_id = f"{self.prefix}-{self.issue_counter}"
@@ -144,15 +142,15 @@ class MarkdownToIssues:
                     "status": "closed" if is_done else "open",
                     "priority": 2,
                     "issue_type": "task",
-                    "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-                    "updated_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+                    "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
                 }
 
                 issues.append(issue)
 
         return issues
 
-    def parse_markdown(self, content: str, global_metadata: Optional[Dict] = None):
+    def parse_markdown(self, content: str, global_metadata: dict | None = None):
         """Parse markdown content into issues."""
         # Extract frontmatter
         frontmatter, body = self.parse_frontmatter(content)
@@ -163,8 +161,8 @@ class MarkdownToIssues:
             metadata.update(frontmatter)
 
         # Split by headings
-        heading_pattern = r'^(#{1,6})\s+(.+)$'
-        lines = body.split('\n')
+        heading_pattern = r"^(#{1,6})\s+(.+)$"
+        lines = body.split("\n")
 
         current_heading = None
         current_level = 0
@@ -176,7 +174,7 @@ class MarkdownToIssues:
             if match:
                 # Save previous section
                 if current_heading:
-                    content_text = '\n'.join(current_content)
+                    content_text = "\n".join(current_content)
 
                     # Check for task lists
                     task_issues = self.parse_task_list(content_text)
@@ -185,10 +183,7 @@ class MarkdownToIssues:
                     else:
                         # Create issue from heading
                         issue = self.extract_issue_from_heading(
-                            current_heading,
-                            current_level,
-                            content_text,
-                            metadata
+                            current_heading, current_level, content_text, metadata
                         )
                         self.issues.append(issue)
 
@@ -201,16 +196,13 @@ class MarkdownToIssues:
 
         # Save final section
         if current_heading:
-            content_text = '\n'.join(current_content)
+            content_text = "\n".join(current_content)
             task_issues = self.parse_task_list(content_text)
             if task_issues:
                 self.issues.extend(task_issues)
             else:
                 issue = self.extract_issue_from_heading(
-                    current_heading,
-                    current_level,
-                    content_text,
-                    metadata
+                    current_heading, current_level, content_text, metadata
                 )
                 self.issues.append(issue)
 
@@ -219,7 +211,7 @@ class MarkdownToIssues:
         lines = []
         for issue in self.issues:
             lines.append(json.dumps(issue, ensure_ascii=False))
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
 
 def main():

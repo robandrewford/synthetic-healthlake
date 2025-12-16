@@ -20,34 +20,34 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, staging, prod]
-  
+
   JwksUrl:
     Type: String
     Description: JWKS endpoint for token validation
     Default: ''
-  
+
   TokenIssuer:
     Type: String
     Description: Expected token issuer
     Default: ''
-  
+
   ApiAudience:
     Type: String
     Description: Expected API audience claim
     Default: ''
-  
+
   SnowflakeSecretArn:
     Type: String
     Description: ARN of Snowflake credentials secret
-  
+
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC for Lambda functions
-  
+
   PrivateSubnet1:
     Type: AWS::EC2::Subnet::Id
     Description: Private subnet 1
-  
+
   PrivateSubnet2:
     Type: AWS::EC2::Subnet::Id
     Description: Private subnet 2
@@ -67,7 +67,7 @@ Resources:
   #############################################
   # NETWORKING
   #############################################
-  
+
   ApiSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -84,14 +84,14 @@ Resources:
   #############################################
   # API GATEWAY
   #############################################
-  
+
   FhirApi:
     Type: AWS::Serverless::Api
     Properties:
       Name: !Sub healthtech-fhir-api-${Environment}
       StageName: !Ref Environment
       Description: FHIR-compliant API for healthcare data access
-      
+
       # Authentication
       Auth:
         DefaultAuthorizer: TokenAuthorizer
@@ -101,7 +101,7 @@ Resources:
             Identity:
               Header: Authorization
               ReauthorizeEvery: 300  # Cache auth for 5 minutes
-      
+
       # Access logging
       AccessLogSetting:
         DestinationArn: !GetAtt ApiAccessLogGroup.Arn
@@ -120,7 +120,7 @@ Resources:
             "organizationId": "$context.authorizer.organization_id",
             "latency": "$context.responseLatency"
           }
-      
+
       # Throttling
       MethodSettings:
         - ResourcePath: '/*'
@@ -130,13 +130,13 @@ Resources:
           LoggingLevel: INFO
           DataTraceEnabled: false  # Don't log request/response bodies (PHI)
           MetricsEnabled: true
-      
+
       # CORS
       Cors:
         AllowMethods: "'GET,POST,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Request-Id'"
         AllowOrigin: "'*'"  # Restrict in production
-      
+
       # OpenAPI spec
       DefinitionBody:
         openapi: '3.0.1'
@@ -186,7 +186,7 @@ Resources:
   #############################################
   # LAMBDA AUTHORIZER
   #############################################
-  
+
   AuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -214,7 +214,7 @@ Resources:
   #############################################
   # FHIR API LAMBDA
   #############################################
-  
+
   FhirApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -224,7 +224,7 @@ Resources:
       Description: FHIR resource endpoints (Patient, Encounter, Observation)
       Timeout: 30
       MemorySize: 1024
-      
+
       # VPC configuration for Snowflake access
       VpcConfig:
         SecurityGroupIds:
@@ -232,7 +232,7 @@ Resources:
         SubnetIds:
           - !Ref PrivateSubnet1
           - !Ref PrivateSubnet2
-      
+
       Environment:
         Variables:
           SNOWFLAKE_SECRET_ARN: !Ref SnowflakeSecretArn
@@ -240,7 +240,7 @@ Resources:
           SNOWFLAKE_DATABASE: HEALTHTECH
           SNOWFLAKE_SCHEMA: ANALYTICS
           SNOWFLAKE_ROLE: API_READER
-      
+
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -254,7 +254,7 @@ Resources:
                 - ec2:DescribeNetworkInterfaces
                 - ec2:DeleteNetworkInterface
               Resource: '*'
-      
+
       Events:
         PatientGet:
           Type: Api
@@ -296,7 +296,7 @@ Resources:
   #############################################
   # INGESTION API LAMBDA
   #############################################
-  
+
   IngestionApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -306,19 +306,19 @@ Resources:
       Description: Webhook receiver and presigned URL generator
       Timeout: 30
       MemorySize: 512
-      
+
       Environment:
         Variables:
           INGESTION_QUEUE_URL: !Ref IngestionQueue
           UPLOAD_BUCKET: !Sub healthtech-data-lake-${Environment}
           UPLOAD_PREFIX: incoming/fhir
-      
+
       Policies:
         - SQSSendMessagePolicy:
             QueueName: !GetAtt IngestionQueue.QueueName
         - S3CrudPolicy:
             BucketName: !Sub healthtech-data-lake-${Environment}
-      
+
       Events:
         ReceiveBundle:
           Type: Api
@@ -342,7 +342,7 @@ Resources:
   #############################################
   # SQS QUEUE FOR ASYNC INGESTION
   #############################################
-  
+
   IngestionQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -362,7 +362,7 @@ Resources:
   #############################################
   # CLOUDWATCH LOGS
   #############################################
-  
+
   ApiAccessLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -384,7 +384,7 @@ Resources:
   #############################################
   # WAF WEB ACL
   #############################################
-  
+
   ApiWafAcl:
     Type: AWS::WAFv2::WebACL
     Properties:
@@ -410,7 +410,7 @@ Resources:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
             MetricName: RateLimitPerIP
-        
+
         # AWS managed rules
         - Name: AWSManagedRulesCommonRuleSet
           Priority: 2
@@ -424,7 +424,7 @@ Resources:
             SampledRequestsEnabled: true
             CloudWatchMetricsEnabled: true
             MetricName: CommonRuleSet
-        
+
         # SQL injection protection
         - Name: AWSManagedRulesSQLiRuleSet
           Priority: 3
@@ -448,7 +448,7 @@ Resources:
   #############################################
   # CLOUDWATCH ALARMS
   #############################################
-  
+
   Api5xxAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -496,19 +496,19 @@ Outputs:
     Value: !Sub https://${FhirApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
     Export:
       Name: !Sub ${AWS::StackName}-ApiEndpoint
-  
+
   ApiId:
     Description: API Gateway ID
     Value: !Ref FhirApi
     Export:
       Name: !Sub ${AWS::StackName}-ApiId
-  
+
   IngestionQueueUrl:
     Description: SQS queue URL for async ingestion
     Value: !Ref IngestionQueue
     Export:
       Name: !Sub ${AWS::StackName}-IngestionQueueUrl
-  
+
   AlertTopicArn:
     Description: SNS topic for alerts
     Value: !Ref AlertTopic

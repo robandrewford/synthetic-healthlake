@@ -18,11 +18,11 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, staging, prod]
-  
+
   SourceBucket:
     Type: String
     Default: healthtech-fhir-source
-  
+
   LandingBucket:
     Type: String
     Default: healthtech-data-lake
@@ -175,11 +175,11 @@ Outputs:
   InitiateExportFunction:
     Description: Initiate Export Lambda ARN
     Value: !GetAtt InitiateExportFunction.Arn
-  
+
   StateMachineArn:
     Description: State Machine ARN
     Value: !Ref FhirIngestionStateMachine
-  
+
   AlertTopicArn:
     Description: SNS Alert Topic ARN
     Value: !Ref AlertTopic
@@ -207,7 +207,7 @@ Step Functions state machine definition using Amazon States Language.
         "Next": "NotifyFailure"
       }]
     },
-    
+
     "PollStatus": {
       "Type": "Task",
       "Resource": "${PollStatusArn}",
@@ -220,7 +220,7 @@ Step Functions state machine definition using Amazon States Language.
         "Next": "NotifyFailure"
       }]
     },
-    
+
     "CheckComplete": {
       "Type": "Choice",
       "Choices": [{
@@ -230,13 +230,13 @@ Step Functions state machine definition using Amazon States Language.
       }],
       "Default": "WaitForExport"
     },
-    
+
     "WaitForExport": {
       "Type": "Wait",
       "Seconds": 60,
       "Next": "PollStatus"
     },
-    
+
     "DownloadResources": {
       "Type": "Task",
       "Resource": "${DownloadResourcesArn}",
@@ -249,7 +249,7 @@ Step Functions state machine definition using Amazon States Language.
         "Next": "NotifyFailure"
       }]
     },
-    
+
     "NotifyFailure": {
       "Type": "Task",
       "Resource": "arn:aws:states:::sns:publish",
@@ -260,11 +260,11 @@ Step Functions state machine definition using Amazon States Language.
       },
       "Next": "Failed"
     },
-    
+
     "Success": {
       "Type": "Succeed"
     },
-    
+
     "Failed": {
       "Type": "Fail",
       "Error": "IngestionFailed",

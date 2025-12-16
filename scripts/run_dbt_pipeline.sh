@@ -34,12 +34,12 @@ dbt test --profiles-dir . --target "${DBT_TARGET}" || echo "⚠ Some tests faile
 # Upload dbt artifacts to S3 if bucket is configured
 if [ -n "${S3_DATA_BUCKET:-}" ]; then
   S3_PREFIX="s3://${S3_DATA_BUCKET}/runs/${PIPELINE_RUN_ID}/dbt"
-  
+
   echo "Step 5: Uploading dbt artifacts to S3: ${S3_PREFIX}"
-  
+
   aws s3 cp target/manifest.json "${S3_PREFIX}/manifest.json" || true
   aws s3 cp target/run_results.json "${S3_PREFIX}/run_results.json" || true
-  
+
   echo "✓ dbt artifacts uploaded"
 else
   echo "⚠ S3_DATA_BUCKET not set, skipping artifact upload"

@@ -17,18 +17,18 @@ class Config:
     SOURCE_BUCKET = os.environ.get('SOURCE_BUCKET', 'healthtech-fhir-source')
     LANDING_BUCKET = os.environ.get('LANDING_BUCKET', 'healthtech-data-lake')
     LANDING_PREFIX = os.environ.get('LANDING_PREFIX', 'landing/fhir')
-    
+
     # Resource types to extract (mirrors Epic $export _type parameter)
     RESOURCE_TYPES = [
         'Patient',
-        'Encounter', 
+        'Encounter',
         'Observation',
         'Condition',
         'MedicationRequest',
         'Procedure',
         'DiagnosticReport'
     ]
-    
+
     # For future Epic integration
     EPIC_BASE_URL = os.environ.get('EPIC_BASE_URL', '')
     EPIC_CLIENT_ID = os.environ.get('EPIC_CLIENT_ID', '')
@@ -53,7 +53,7 @@ def extract_resources_from_bundle(bundle: Dict[Any, Any]) -> Generator[Dict[Any,
         # Single resource, not a bundle
         yield bundle
         return
-    
+
     for entry in bundle.get('entry', []):
         resource = entry.get('resource', {})
         if resource:
@@ -77,12 +77,12 @@ def parse_patient_identifiers(patient: Dict[Any, Any]) -> Dict[str, Any]:
     Extract key identifiers from Patient resource for downstream processing.
     """
     identifiers = {}
-    
+
     # Extract MRN or other identifiers
     for identifier in patient.get('identifier', []):
         system = identifier.get('system', '')
         value = identifier.get('value', '')
-        
+
         if 'MR' in identifier.get('type', {}).get('coding', [{}])[0].get('code', ''):
             identifiers['mrn'] = value
         elif 'SSN' in system:
@@ -92,18 +92,18 @@ def parse_patient_identifiers(patient: Dict[Any, Any]) -> Dict[str, Any]:
                 'system': system,
                 'value': value
             })
-    
+
     # Extract name
     names = patient.get('name', [])
     if names:
         official = next((n for n in names if n.get('use') == 'official'), names[0])
         identifiers['family_name'] = official.get('family', '')
         identifiers['given_names'] = official.get('given', [])
-    
+
     # Extract demographics
     identifiers['birth_date'] = patient.get('birthDate')
     identifiers['gender'] = patient.get('gender')
-    
+
     return identifiers
 ```
 
@@ -117,7 +117,7 @@ Lambda 1: Initiate FHIR bulk export.
 """
 Lambda 1: Initiate Export
 
-Production behavior (Epic): 
+Production behavior (Epic):
   - POST to $export endpoint
   - Receive Content-Location header for polling
 
@@ -141,14 +141,14 @@ s3 = boto3.client('s3')
 def lambda_handler(event: dict, context) -> dict:
     """
     Initiate FHIR bulk export.
-    
+
     Input event:
     {
         "source_prefix": "synthea/batch-001",  # Optional, defaults to latest
         "resource_types": ["Patient", "Encounter"],  # Optional, defaults to all
         "mode": "synthea"  # or "epic" for production
     }
-    
+
     Output:
     {
         "export_id": "export-20241215-123456",
@@ -161,15 +161,15 @@ def lambda_handler(event: dict, context) -> dict:
         "initiated_at": "2024-12-15T12:34:56Z"
     }
     """
-    
+
     mode = event.get('mode', 'synthea')
     source_prefix = event.get('source_prefix', 'synthea/batch-001')
     resource_types = event.get('resource_types', Config.RESOURCE_TYPES)
-    
+
     export_id = f"export-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-    
+
     logger.info(f"Initiating export {export_id} in {mode} mode")
-    
+
     if mode == 'synthea':
         return initiate_synthea_export(export_id, source_prefix, resource_types)
     elif mode == 'epic':
@@ -182,10 +182,10 @@ def initiate_synthea_export(export_id: str, source_prefix: str, resource_types: 
     """
     List available Synthea bundles in S3.
     """
-    
+
     files = []
     paginator = s3.get_paginator('list_objects_v2')
-    
+
     for page in paginator.paginate(Bucket=Config.SOURCE_BUCKET, Prefix=source_prefix):
         for obj in page.get('Contents', []):
             key = obj['Key']
@@ -195,12 +195,12 @@ def initiate_synthea_export(export_id: str, source_prefix: str, resource_types: 
                     'size': obj['Size'],
                     'last_modified': obj['LastModified'].isoformat()
                 })
-    
+
     logger.info(f"Found {len(files)} bundle files in {Config.SOURCE_BUCKET}/{source_prefix}")
-    
+
     if not files:
         raise ValueError(f"No FHIR bundles found in s3://{Config.SOURCE_BUCKET}/{source_prefix}")
-    
+
     return {
         'export_id': export_id,
         'status_payload': {
@@ -220,12 +220,12 @@ def initiate_epic_export(export_id: str, event: dict, resource_types: list) -> d
     Initiate Epic Bulk FHIR export.
     Placeholder for production implementation.
     """
-    
+
     # TODO: Implement when Epic sandbox available
     # 1. Get access token from Secrets Manager
     # 2. POST to {epic_base}/Patient/$export
     # 3. Return Content-Location URL
-    
+
     raise NotImplementedError("Epic export not yet implemented")
 ```
 
@@ -261,13 +261,13 @@ logger.setLevel(logging.INFO)
 def lambda_handler(event: dict, context) -> dict:
     """
     Poll export status.
-    
+
     Input event:
     {
         "export_id": "export-20241215-123456",
         "status_payload": { ... from initiate step ... }
     }
-    
+
     Output:
     {
         "export_id": "export-20241215-123456",
@@ -279,13 +279,13 @@ def lambda_handler(event: dict, context) -> dict:
         "checked_at": "2024-12-15T12:35:00Z"
     }
     """
-    
+
     export_id = event['export_id']
     status_payload = event['status_payload']
     mode = status_payload.get('mode', 'synthea')
-    
+
     logger.info(f"Polling status for {export_id} in {mode} mode")
-    
+
     if mode == 'synthea':
         return poll_synthea_status(export_id, status_payload)
     elif mode == 'epic':
@@ -298,7 +298,7 @@ def poll_synthea_status(export_id: str, status_payload: dict) -> dict:
     """
     Synthea files are already available; return complete immediately.
     """
-    
+
     return {
         'export_id': export_id,
         'complete': True,
@@ -317,12 +317,12 @@ def poll_epic_status(export_id: str, status_payload: dict) -> dict:
     Poll Epic Content-Location URL.
     Placeholder for production implementation.
     """
-    
+
     # TODO: Implement when Epic sandbox available
     # 1. GET status_payload['content_location']
     # 2. If 202: return {'complete': False, 'retry_after': headers['Retry-After']}
     # 3. If 200: parse response, return {'complete': True, 'output': {...}}
-    
+
     raise NotImplementedError("Epic polling not yet implemented")
 ```
 
@@ -364,7 +364,7 @@ s3 = boto3.client('s3')
 def lambda_handler(event: dict, context) -> dict:
     """
     Download and transform FHIR resources to landing zone.
-    
+
     Input event:
     {
         "export_id": "export-20241215-123456",
@@ -374,7 +374,7 @@ def lambda_handler(event: dict, context) -> dict:
             "resource_types": [...]
         }
     }
-    
+
     Output:
     {
         "export_id": "export-20241215-123456",
@@ -392,54 +392,54 @@ def lambda_handler(event: dict, context) -> dict:
         "completed_at": "2024-12-15T12:36:00Z"
     }
     """
-    
+
     export_id = event['export_id']
     output = event['output']
     source_bucket = output['source_bucket']
     files = output['files']
     resource_types = output['resource_types']
-    
+
     logger.info(f"Processing {len(files)} files for export {export_id}")
-    
+
     # Accumulate resources by type
     resources_by_type: Dict[str, List[dict]] = {rt: [] for rt in resource_types}
-    
+
     # Process each source file
     for file_info in files:
         key = file_info['key']
         logger.info(f"Processing {key}")
-        
+
         try:
             response = s3.get_object(Bucket=source_bucket, Key=key)
             bundle = json.loads(response['Body'].read().decode('utf-8'))
-            
+
             for resource in extract_resources_from_bundle(bundle):
                 resource_type = resource.get('resourceType')
                 if resource_type in resources_by_type:
                     resources_by_type[resource_type].append(resource)
-                    
+
         except Exception as e:
             logger.error(f"Error processing {key}: {e}")
             raise
-    
+
     # Write NDJSON files to landing zone
     date_path = datetime.utcnow().strftime('%Y/%m/%d')
     files_written = {}
     record_counts = {}
-    
+
     for resource_type, resources in resources_by_type.items():
         if not resources:
             logger.info(f"No {resource_type} resources found")
             continue
-        
+
         # Convert to NDJSON
         ndjson_content = '\n'.join(
             json.dumps(r, separators=(',', ':')) for r in resources
         )
-        
+
         # Write to landing zone
         landing_key = f"{Config.LANDING_PREFIX}/{resource_type}/{date_path}/{resource_type}.ndjson"
-        
+
         s3.put_object(
             Bucket=Config.LANDING_BUCKET,
             Key=landing_key,
@@ -451,12 +451,12 @@ def lambda_handler(event: dict, context) -> dict:
                 'record_count': str(len(resources))
             }
         )
-        
+
         files_written[resource_type] = landing_key
         record_counts[resource_type] = len(resources)
-        
+
         logger.info(f"Wrote {len(resources)} {resource_type} resources to {landing_key}")
-    
+
     return {
         'export_id': export_id,
         'landing_bucket': Config.LANDING_BUCKET,

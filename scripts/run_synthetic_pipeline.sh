@@ -40,16 +40,16 @@ python /app/synthetic/scripts/validate_cross_model.py \
 # Upload to S3 if bucket is configured
 if [ -n "${S3_DATA_BUCKET:-}" ]; then
   S3_PREFIX="s3://${S3_DATA_BUCKET}/runs/${PIPELINE_RUN_ID}"
-  
+
   echo "Step 4: Uploading to S3: ${S3_PREFIX}"
-  
+
   # Upload FHIR data
   aws s3 cp "${FHIR_DIR}/patients_bundle.json" "${S3_PREFIX}/fhir/patients_bundle.json"
   aws s3 cp "${FHIR_DIR}/fhir_patient_flat.parquet" "${S3_PREFIX}/fhir/fhir_patient_flat.parquet"
-  
+
   # Upload OMOP data
   aws s3 sync "${OMOP_DIR}/" "${S3_PREFIX}/omop/" --exclude "*" --include "*.parquet"
-  
+
   echo "✓ Data uploaded to ${S3_PREFIX}"
 else
   echo "⚠ S3_DATA_BUCKET not set, skipping upload"

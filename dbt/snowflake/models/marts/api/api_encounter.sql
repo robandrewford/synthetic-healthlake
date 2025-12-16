@@ -14,7 +14,7 @@ with encounters as (
 ),
 
 patients as (
-    select 
+    select
         patient_id,
         full_name as patient_name,
         gender as patient_gender,
@@ -45,23 +45,24 @@ enriched as (
         e.participant_display,
         e.location_id,
         e.location_display,
-        
+
         -- Derived: Duration in hours
-        case 
-            when e.period_start is not null and e.period_end is not null then
-                datediff('hour', e.period_start, e.period_end)
-            else null
-        end as duration_hours,
-        
-        -- Derived: Is active encounter
-        e.status in ('in-progress', 'arrived', 'triaged', 'onleave') as is_active,
-        
-        -- Metadata
         e.source_file,
-        e.ingestion_time
-        
-    from encounters e
-    left join patients p on e.patient_id = p.patient_id
+
+        -- Derived: Is active encounter
+        e.ingestion_time,
+
+        -- Metadata
+        case
+            when e.period_start is not null and e.period_end is not null
+                then
+                    datediff('hour', e.period_start, e.period_end)
+        end as duration_hours,
+        e.status in ('in-progress', 'arrived', 'triaged', 'onleave')
+            as is_active
+
+    from encounters as e
+    left join patients as p on e.patient_id = p.patient_id
     where e.encounter_id is not null
 )
 

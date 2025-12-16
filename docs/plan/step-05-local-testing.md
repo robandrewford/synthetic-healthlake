@@ -167,7 +167,7 @@ def sample_bundle():
 
 def test_extract_resources_from_bundle(sample_bundle):
     resources = list(extract_resources_from_bundle(sample_bundle))
-    
+
     assert len(resources) == 3
     assert resources[0]['resourceType'] == 'Patient'
     assert resources[1]['resourceType'] == 'Encounter'
@@ -180,19 +180,19 @@ def test_extract_single_resource():
         "resourceType": "Patient",
         "id": "patient-001"
     }
-    
+
     resources = list(extract_resources_from_bundle(single_resource))
-    
+
     assert len(resources) == 1
     assert resources[0]['resourceType'] == 'Patient'
 
 
 def test_bundle_to_ndjson_filters_by_type(sample_bundle):
     patient_ndjson = bundle_to_ndjson(sample_bundle, 'Patient')
-    
+
     lines = patient_ndjson.strip().split('\n')
     assert len(lines) == 1
-    
+
     patient = json.loads(lines[0])
     assert patient['resourceType'] == 'Patient'
     assert patient['id'] == 'patient-001'
@@ -208,10 +208,10 @@ def test_bundle_to_ndjson_multiple_resources():
             {"resource": {"resourceType": "Encounter", "id": "e1"}}
         ]
     }
-    
+
     patient_ndjson = bundle_to_ndjson(bundle, 'Patient')
     lines = patient_ndjson.strip().split('\n')
-    
+
     assert len(lines) == 2
     assert json.loads(lines[0])['id'] == 'p1'
     assert json.loads(lines[1])['id'] == 'p2'
@@ -220,7 +220,7 @@ def test_bundle_to_ndjson_multiple_resources():
 def test_bundle_to_ndjson_no_matching_resources(sample_bundle):
     """Test bundle with no resources of requested type."""
     ndjson = bundle_to_ndjson(sample_bundle, 'MedicationRequest')
-    
+
     assert ndjson == ''
 
 
@@ -237,9 +237,9 @@ def test_parse_patient_identifiers():
             }
         ]
     }
-    
+
     identifiers = parse_patient_identifiers(patient)
-    
+
     assert identifiers['family_name'] == 'Smith'
     assert identifiers['given_names'] == ['John', 'Michael']
     assert identifiers['birth_date'] == '1980-01-15'
@@ -253,9 +253,9 @@ def test_parse_patient_identifiers_minimal():
         "resourceType": "Patient",
         "id": "p1"
     }
-    
+
     identifiers = parse_patient_identifiers(patient)
-    
+
     assert identifiers.get('family_name') == ''
     assert identifiers.get('given_names') == []
     assert identifiers.get('birth_date') is None
@@ -295,7 +295,7 @@ def s3_with_bundles(aws_credentials):
     with mock_aws():
         s3 = boto3.client('s3', region_name='us-east-1')
         s3.create_bucket(Bucket=Config.SOURCE_BUCKET)
-        
+
         # Upload sample bundles
         for i in range(3):
             s3.put_object(
@@ -306,7 +306,7 @@ def s3_with_bundles(aws_credentials):
                     "entry": [{"resource": {"resourceType": "Patient", "id": f"p{i}"}}]
                 })
             )
-        
+
         yield s3
 
 
@@ -316,9 +316,9 @@ def test_initiate_synthea_export(s3_with_bundles):
         "source_prefix": "synthea/batch-001",
         "mode": "synthea"
     }
-    
+
     result = lambda_handler(event, None)
-    
+
     assert 'export_id' in result
     assert result['export_id'].startswith('export-')
     assert result['status_payload']['total_files'] == 3
@@ -334,9 +334,9 @@ def test_initiate_export_with_custom_resource_types(s3_with_bundles):
         "mode": "synthea",
         "resource_types": ["Patient", "Encounter"]
     }
-    
+
     result = lambda_handler(event, None)
-    
+
     assert result['status_payload']['resource_types'] == ["Patient", "Encounter"]
 
 
@@ -345,12 +345,12 @@ def test_initiate_export_no_files(aws_credentials):
     with mock_aws():
         s3 = boto3.client('s3', region_name='us-east-1')
         s3.create_bucket(Bucket=Config.SOURCE_BUCKET)
-        
+
         event = {
             "source_prefix": "empty/prefix",
             "mode": "synthea"
         }
-        
+
         with pytest.raises(ValueError, match="No FHIR bundles found"):
             lambda_handler(event, None)
 
@@ -360,11 +360,11 @@ def test_initiate_export_epic_not_implemented(aws_credentials):
     with mock_aws():
         s3 = boto3.client('s3', region_name='us-east-1')
         s3.create_bucket(Bucket=Config.SOURCE_BUCKET)
-        
+
         event = {
             "mode": "epic"
         }
-        
+
         with pytest.raises(NotImplementedError, match="Epic export not yet implemented"):
             lambda_handler(event, None)
 
@@ -374,11 +374,11 @@ def test_initiate_export_invalid_mode(aws_credentials):
     with mock_aws():
         s3 = boto3.client('s3', region_name='us-east-1')
         s3.create_bucket(Bucket=Config.SOURCE_BUCKET)
-        
+
         event = {
             "mode": "invalid"
         }
-        
+
         with pytest.raises(ValueError, match="Unknown mode"):
             lambda_handler(event, None)
 ```
@@ -412,11 +412,11 @@ def aws_credentials(monkeypatch):
 def s3_setup(aws_credentials):
     with mock_aws():
         s3 = boto3.client('s3', region_name='us-east-1')
-        
+
         # Create buckets
         s3.create_bucket(Bucket=Config.SOURCE_BUCKET)
         s3.create_bucket(Bucket=Config.LANDING_BUCKET)
-        
+
         # Upload sample bundle
         bundle = {
             "resourceType": "Bundle",
@@ -426,13 +426,13 @@ def s3_setup(aws_credentials):
                 {"resource": {"resourceType": "Encounter", "id": "e1", "status": "finished"}}
             ]
         }
-        
+
         s3.put_object(
             Bucket=Config.SOURCE_BUCKET,
             Key='synthea/batch-001/bundle1.json',
             Body=json.dumps(bundle)
         )
-        
+
         yield s3
 
 
@@ -447,9 +447,9 @@ def test_download_resources_success(s3_setup):
             "resource_types": ["Patient", "Encounter"]
         }
     }
-    
+
     result = lambda_handler(event, None)
-    
+
     assert result['export_id'] == "export-test-001"
     assert result['landing_bucket'] == Config.LANDING_BUCKET
     assert result['record_counts']['Patient'] == 2
@@ -470,23 +470,23 @@ def test_download_resources_writes_ndjson(s3_setup):
             "resource_types": ["Patient"]
         }
     }
-    
+
     result = lambda_handler(event, None)
-    
+
     # Read the output file
     s3 = boto3.client('s3', region_name='us-east-1')
     patient_key = result['files_written']['Patient']
-    
+
     response = s3.get_object(Bucket=Config.LANDING_BUCKET, Key=patient_key)
     content = response['Body'].read().decode('utf-8')
-    
+
     lines = content.strip().split('\n')
     assert len(lines) == 2
-    
+
     # Verify valid JSON on each line
     p1 = json.loads(lines[0])
     p2 = json.loads(lines[1])
-    
+
     assert p1['resourceType'] == 'Patient'
     assert p2['resourceType'] == 'Patient'
 
@@ -502,9 +502,9 @@ def test_download_resources_skips_empty_types(s3_setup):
             "resource_types": ["Patient", "MedicationRequest"]  # No MedicationRequest in bundle
         }
     }
-    
+
     result = lambda_handler(event, None)
-    
+
     assert 'Patient' in result['files_written']
     assert 'MedicationRequest' not in result['files_written']
     assert result['record_counts']['Patient'] == 2

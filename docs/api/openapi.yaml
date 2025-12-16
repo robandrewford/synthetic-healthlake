@@ -3,16 +3,16 @@ info:
   title: FHIR Health Platform API
   description: |
     FHIR R4 compliant REST API for healthcare data access and ingestion.
-    
+
     This API provides:
     - Read and search access to FHIR resources (Patient, Encounter, Observation)
     - Webhook ingestion for real-time FHIR Bundle delivery
     - Presigned URL generation for bulk file uploads
-    
+
     ## Authentication
     All endpoints require Bearer token authentication via AWS Cognito.
     Include the JWT token in the Authorization header.
-    
+
     ## FHIR Compliance
     Search responses return FHIR Bundle resources with type "searchset".
     Single resource reads return the FHIR resource directly.
