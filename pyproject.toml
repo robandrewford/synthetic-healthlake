@@ -27,6 +27,8 @@ test = [
 ]
 dev = [
     "pre-commit>=3.5.0",
+    "types-PyYAML>=6.0.0",
+    "boto3-stubs>=1.34.0",
 ]
 security = [
     "pip-audit>=2.6.0",
@@ -102,3 +104,18 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 # Auto-detect line ending
 line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+no_strict_optional = true
+warn_return_any = false
+warn_unused_ignores = false
+disable_error_code = ["import-untyped"]
+exclude = [
+    "cdk.out",
+    "node_modules",
+    ".venv",
+    "venv",
+    "history",
+]
