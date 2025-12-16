@@ -17,6 +17,10 @@
 - [Risk Register](governance/risk-register.md)
 - [Threat Model](governance/threat-model.md)
 - [Security Policy](security/security.md)
+- [Security Checklist](security/security-checklist.md)
+- [Deployment Checklist](security/deployment-checklist.md)
+- [Secrets Management](security/secrets-management.md)
+- [Dependency Scanning](security/dependency-scanning.md)
 
 ## 4. Operations
 - [Operations Guide](operations/operations.md)
