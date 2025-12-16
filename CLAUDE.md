@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Current Status**: ~85% complete for production, ~95% complete as learning/prototyping reference architecture. See `ACTION_PLAN.md` for comprehensive completion roadmap.
 
 **Phases Completed**:
+
 - ✅ Phase 1: Fix Critical Bugs & Dependencies
 - ✅ Phase 2: Complete Infrastructure Foundation (KMS, VPC endpoints, Step Functions, security)
 - ✅ Phase 3: Implement Core Application Logic (generators, ETL, validation)
@@ -19,10 +20,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 🚧 Phase 8: Polish & Validation (in progress)
 
 **Current Known Issues**:
+
 - Python package structure needs reorganization for tests to run (flat layout issue)
 - MkDocs navigation not yet configured (documentation files exist)
 
 **Key Achievements**:
+
 - ✅ Correlated FHIR+OMOP data generation
 - ✅ PIPELINE_RUN_ID flows from Step Functions → ECS → dbt
 - ✅ 100% cross-model validation passing
@@ -32,6 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Python Environment
+
 ```bash
 # Install dependencies (uses uv for package management)
 uv sync
@@ -48,6 +52,7 @@ python synthetic/scripts/validate_cross_model.py --help
 ```
 
 ### CDK Infrastructure
+
 ```bash
 cd cdk/
 
@@ -70,6 +75,7 @@ cdk destroy
 ```
 
 ### dbt Transformations
+
 ```bash
 cd dbt/fhir_omop_dbt/
 
@@ -95,6 +101,7 @@ dbt docs serve
 ```
 
 ### Documentation
+
 ```bash
 # Serve MkDocs locally
 pip install mkdocs mkdocs-material
@@ -107,6 +114,7 @@ mkdocs build
 ## Architecture Overview
 
 ### Data Flow Pipeline (Planned)
+
 ```
 Synthetic Generators → FHIR Flattening → OMOP Parquet → dbt Transformations → Athena Queries
      (Python)              (Python)          (Python)      (SQL/dbt)           (SQL)
@@ -117,6 +125,7 @@ Synthetic Generators → FHIR Flattening → OMOP Parquet → dbt Transformation
 ### Three-Layer Architecture
 
 **1. Synthetic Data Layer** (`synthetic/`)
+
 - **Purpose**: Generate realistic FHIR and OMOP synthetic patient data
 - **Components**:
   - `synthetic/scripts/apply_domain_constraints.py` - Apply medical domain rules and distributions
@@ -125,6 +134,7 @@ Synthetic Generators → FHIR Flattening → OMOP Parquet → dbt Transformation
 - **Status**: Stub implementations, needs full generator logic
 
 **2. Storage & ETL Layer** (AWS)
+
 - **Iceberg Tables**: ACID-compliant tables on S3 with Glue Catalog metadata
 - **DDL Scripts**: `iceberg-ddl/*.sql` define table schemas
 - **Orchestration**: Step Functions pipeline (not yet implemented) will coordinate:
@@ -134,6 +144,7 @@ Synthetic Generators → FHIR Flattening → OMOP Parquet → dbt Transformation
   4. dbt transformations (ECS Fargate)
 
 **3. Transformation Layer** (`dbt/fhir_omop_dbt/`)
+
 - **Staging Models** (`models/staging/`): Raw data from Iceberg sources
   - `stg_fhir_patient.sql` - FHIR patient staging
   - `stg_person.sql` - OMOP person staging (MISSING - needs creation)
@@ -146,6 +157,7 @@ Synthetic Generators → FHIR Flattening → OMOP Parquet → dbt Transformation
   - Expects `PIPELINE_RUN_ID` environment variable (currently hardcoded as null)
 
 ### Infrastructure Layer (`cdk/`)
+
 - **Main Stack**: `cdk/lib/fhir-omop-stack.ts`
   - VPC with public/private subnets
   - S3 bucket for data (currently S3-managed encryption, needs KMS)
@@ -156,13 +168,16 @@ Synthetic Generators → FHIR Flattening → OMOP Parquet → dbt Transformation
 ## Key Architectural Patterns
 
 ### Data Lineage Tracking
+
 All dbt mart models should use the `lineage_standard_columns()` macro to track:
+
 - Pipeline run ID (from Step Functions/ECS via `PIPELINE_RUN_ID` env var)
 - Source origin (OMOP, FHIR, or combined)
 - dbt run metadata (invocation_id, model name, target environment)
 - Ingestion timestamps
 
 Example usage in `dim_patient.sql`:
+
 ```sql
 {{ lineage_standard_columns(
     omop_ts_col       = 'p.omop_ingestion_ts',
@@ -173,11 +188,13 @@ Example usage in `dim_patient.sql`:
 ```
 
 ### Synthetic-First Design
+
 - **No Real Patient Data**: Only synthetic data allowed (HIPAA/compliance safe)
 - Generators must respect medical domain constraints (age ranges, valid codes, realistic distributions)
 - Cross-model validation ensures FHIR and OMOP representations are consistent
 
 ### Iceberg Table Strategy
+
 - **Partitioning**: Tables partitioned by relevant date columns (e.g., `year_of_birth`)
 - **Format**: Parquet with compression
 - **Time Travel**: Iceberg supports historical queries
@@ -186,18 +203,21 @@ Example usage in `dim_patient.sql`:
 ## Coding Standards
 
 ### Python
+
 - Follow PEP8, use type hints
 - Prefer `pathlib` over `os.path`
 - Use `logging` module, not `print()` for production code
 - Add error handling for file I/O and data validation
 
 ### TypeScript (CDK)
+
 - Enable strict mode in `tsconfig.json`
 - No magic numbers - use constants or CDK context
 - Export constructs cleanly
 - Tag all resources for cost allocation
 
 ### dbt Models
+
 - **Naming**: Staging models prefix with `stg_*`
 - **Materialization**: Staging = views, marts = tables
 - **Always use**: `{{ ref() }}` for models, `{{ source() }}` for raw tables
@@ -205,6 +225,7 @@ Example usage in `dim_patient.sql`:
 - **Testing**: Add `unique`, `not_null`, `relationships` tests
 
 ### YAML Configs
+
 - 2-space indentation
 - Lowercase field names
 - Separate files for constraints vs distributions vs terminology
@@ -212,12 +233,14 @@ Example usage in `dim_patient.sql`:
 ## Important File Locations
 
 ### Configuration
+
 - `pyproject.toml` - Python dependencies (managed by uv)
 - `cdk/cdk.json` - CDK app configuration
 - `dbt/fhir_omop_dbt/dbt_project.yml` - dbt project config
 - `dbt/fhir_omop_dbt/profiles.example.yml` - dbt profile template for Athena
 
 ### Documentation
+
 - `docs/` - MkDocs documentation source
 - `docs/architecture/design-decisions.md` - Key architectural rationale
 - `docs/security/security.md` - Security requirements and policies
@@ -226,10 +249,12 @@ Example usage in `dim_patient.sql`:
 - `GETTING_STARTED.md` - Implementation guide with quick wins
 
 ### Infrastructure
+
 - `cdk/lib/fhir-omop-stack.ts` - Main CDK stack definition
 - `iceberg-ddl/*.sql` - Iceberg table DDL statements (run in Athena)
 
 ### Testing
+
 - `.github/workflows/` - CI/CD pipelines
   - `cdk-deploy.yml` - CDK synth on push
   - `dbt-tests.yml` - dbt tests on PR (uses AWS credentials in secrets)
@@ -238,6 +263,7 @@ Example usage in `dim_patient.sql`:
 ## Critical Context for Development
 
 ### Known Gaps Requiring Implementation
+
 1. **Synthetic generators are stubs** - Need full implementation using Faker, medical terminologies
 2. **Step Functions orchestration missing** - Pipeline coordination not yet built
 3. **PIPELINE_RUN_ID wiring** - Currently hardcoded as null, needs ECS/Step Functions integration
@@ -249,6 +275,7 @@ Example usage in `dim_patient.sql`:
 5. **No test coverage** - No pytest tests, no CDK tests, minimal dbt tests
 
 ### Design Decisions to Respect
+
 - **Iceberg over Delta Lake**: Chosen for Athena compatibility and ACID guarantees
 - **ECS Fargate over Lambda**: Batch processing can exceed Lambda limits
 - **dbt over Spark**: SQL-first approach, simpler for analytics teams
@@ -256,12 +283,14 @@ Example usage in `dim_patient.sql`:
 - **Synthetic-only data**: Non-negotiable for compliance and safety
 
 ### When Modifying dbt Models
+
 - Ensure `stg_person.sql` references `source('omop', 'person_iceberg')`
 - Mart models joining FHIR + OMOP must handle null/missing joins gracefully
 - Always include lineage columns via `lineage_standard_columns()` macro
 - Test with: `dbt compile` before `dbt run`
 
 ### When Modifying CDK Infrastructure
+
 - All resources must have encryption at rest (KMS preferred)
 - All resources must have tags: Project, Environment, ManagedBy
 - ECS tasks must run in private subnets with VPC endpoints
@@ -269,6 +298,7 @@ Example usage in `dim_patient.sql`:
 - Test with: `npm run build && npx cdk synth`
 
 ### When Adding Python Scripts
+
 - Add to `pyproject.toml` dependencies if new packages needed
 - Use `click` for CLI interfaces
 - Write to S3 using `boto3` with proper error handling
@@ -277,11 +307,13 @@ Example usage in `dim_patient.sql`:
 ## Environment Variables
 
 ### dbt Runtime
+
 - `PIPELINE_RUN_ID` - Unique identifier for pipeline execution (passed from Step Functions)
 - `DBT_TARGET` - Target environment (dev/prod)
 - AWS credentials for Athena access
 
 ### ECS Tasks (Future)
+
 - `S3_DATA_BUCKET` - Target S3 bucket for outputs
 - `GLUE_DB_NAME` - Glue database name
 - `PIPELINE_RUN_ID` - Execution identifier
@@ -290,16 +322,19 @@ Example usage in `dim_patient.sql`:
 ## Reference Documentation
 
 **Primary Planning Docs**:
+
 - `ACTION_PLAN.md` - Start here for understanding completion roadmap
 - `GETTING_STARTED.md` - Step-by-step guide to begin implementation
 - `IMPLEMENTATION_SUMMARY.md` - Executive overview and timelines
 
 **Technical Docs**:
+
 - `docs/architecture/overview.md` - High-level system architecture
 - `docs/data/validation-framework.md` - Data quality approach
 - `docs/operations/observability-plan.md` - Monitoring strategy
 
 **Healthcare Standards**:
+
 - FHIR R4 for patient resources
 - OMOP CDM 5.x for observational medical data
 - Concept IDs must be valid OMOP standard concepts
@@ -307,6 +342,7 @@ Example usage in `dim_patient.sql`:
 ## Common Workflows
 
 ### Adding a New dbt Model
+
 1. Create `.sql` file in appropriate directory (`staging/` or `marts/`)
 2. Create corresponding `.yml` with schema and tests
 3. Use `{{ ref() }}` for dependencies, `{{ source() }}` for raw tables
@@ -316,6 +352,7 @@ Example usage in `dim_patient.sql`:
 7. Add tests: `unique`, `not_null`, `relationships`
 
 ### Deploying Infrastructure Changes
+
 1. Modify TypeScript in `cdk/lib/`
 2. Run `npm run build` to compile
 3. Run `npx cdk synth` to generate CloudFormation
@@ -324,6 +361,7 @@ Example usage in `dim_patient.sql`:
 6. Verify in AWS Console
 
 ### Testing Synthetic Data Generators
+
 1. Fix syntax error in `apply_domain_constraints.py` first
 2. Add missing dependencies to `pyproject.toml`
 3. Run `uv sync`
@@ -345,23 +383,28 @@ Example usage in `dim_patient.sql`:
 ## Troubleshooting
 
 ### dbt compilation fails with missing model
+
 - Likely `stg_person.sql` is missing - create it following `stg_fhir_patient.sql` pattern
 - Check `sources_fhir_omop.yml` for correct source table names
 
 ### CDK synth fails
+
 - Run `npm run build` first to compile TypeScript
 - Check for missing imports or typos in construct properties
 
 ### Python import errors
+
 - Run `uv sync` to install missing dependencies
 - Check syntax in scripts (known error on line 16 of `apply_domain_constraints.py`)
 
 ### Athena queries fail on Iceberg tables
+
 - Verify tables created with DDL in `iceberg-ddl/*.sql`
 - Check S3 bucket paths match CDK outputs
 - Ensure Glue Catalog database exists
 
 ### GitHub Actions workflows fail
+
 - Check AWS credentials are set in repository secrets
 - Workflows expect `ATHENA_S3_STAGING_DIR`, `AWS_REGION`, AWS access keys
 - Long-term: migrate to OIDC for GitHub Actions (see ACTION_PLAN.md Phase 7.6)
