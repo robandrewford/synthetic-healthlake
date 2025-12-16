@@ -66,6 +66,37 @@ bd close bd-42 --reason "Completed" --json
 5. **Complete**: `bd close <id> --reason "Done"`
 6. **Commit together**: Always commit the `.beads/issues.jsonl` file together with the code changes so issue state stays in sync with code state
 
+### Pre-Commit Hooks and Git Workflow
+
+**CRITICAL**: Pre-commit hooks may modify files automatically (formatting, trailing whitespace, etc.)
+
+**Correct workflow when pre-commit hooks modify files:**
+
+```bash
+# Attempt to commit
+git add <files> && git commit -m "message"
+
+# If pre-commit hooks modify files, they will show "Failed" or "files were modified"
+# The commit will NOT complete
+
+# Re-add the modified files
+git add <modified-files>
+
+# Commit again (hooks will pass this time)
+git commit -m "message"
+```
+
+**DO NOT** ignore hook failures or try to bypass them. If hooks modify files:
+1. Read the hook output to see which files were modified
+2. Re-add those files: `git add <files>`
+3. Commit again: `git commit -m "message"`
+
+**Common hooks that modify files:**
+- `trailing-whitespace` - Fixes trailing whitespace
+- `end-of-file-fixer` - Ensures files end with newline
+- `ruff-format` - Auto-formats Python code
+- `mixed-line-ending` - Fixes line endings
+
 ### Auto-Sync
 
 bd automatically syncs with git:
