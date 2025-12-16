@@ -7,24 +7,60 @@ models:
       Provides denormalized patient data with computed fields like age and full name.
     config:
       tags: ['api', 'patient']
+      contract:
+        enforced: true
     columns:
       - name: patient_id
         description: FHIR Patient resource ID
-        tests:
-          - not_null
-          - unique
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: unique
       - name: active
         description: Whether the patient record is active
+        data_type: boolean
       - name: gender
         description: Patient gender (male, female, other, unknown)
+        data_type: varchar
       - name: birth_date
         description: Patient date of birth
+        data_type: date
+      - name: deceased_datetime
+        description: Date/time of death if deceased
+        data_type: timestamp_ntz
+      - name: name_family
+        description: Patient family name
+        data_type: varchar
+      - name: name_given
+        description: Patient given name
+        data_type: varchar
+      - name: city
+        description: Patient city
+        data_type: varchar
+      - name: state
+        description: Patient state
+        data_type: varchar
+      - name: postal_code
+        description: Patient postal code
+        data_type: varchar
+      - name: country
+        description: Patient country
+        data_type: varchar
+      - name: source_file
+        description: Source file from ingestion
+        data_type: varchar
+      - name: ingestion_time
+        description: Timestamp when record was ingested
+        data_type: timestamp_ntz
       - name: full_name
         description: Computed full name (given + family)
+        data_type: varchar
       - name: age
         description: Computed age in years
+        data_type: number
       - name: is_deceased
         description: Boolean flag indicating if patient is deceased
+        data_type: boolean
 
   - name: api_encounter
     description: >
@@ -32,26 +68,47 @@ models:
       Provides denormalized encounter data with patient context.
     config:
       tags: ['api', 'encounter']
+      contract:
+        enforced: true
     columns:
       - name: encounter_id
         description: FHIR Encounter resource ID
-        tests:
-          - not_null
-          - unique
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: unique
       - name: status
         description: Encounter status (planned, arrived, triaged, in-progress, etc.)
+        data_type: varchar
       - name: class_code
         description: Encounter class code (ambulatory, inpatient, emergency, etc.)
+        data_type: varchar
       - name: patient_id
         description: Reference to Patient resource
+        data_type: varchar
+        constraints:
+          - type: not_null
       - name: period_start
         description: Start of encounter period
+        data_type: timestamp_ntz
       - name: period_end
         description: End of encounter period
+        data_type: timestamp_ntz
+      - name: service_provider
+        description: Organization providing the encounter
+        data_type: varchar
+      - name: source_file
+        description: Source file from ingestion
+        data_type: varchar
+      - name: ingestion_time
+        description: Timestamp when record was ingested
+        data_type: timestamp_ntz
       - name: duration_hours
         description: Computed duration in hours
+        data_type: number
       - name: is_active
         description: Boolean flag indicating if encounter is currently active
+        data_type: boolean
 
   - name: api_observation
     description: >
@@ -59,33 +116,59 @@ models:
       Provides denormalized observation data with patient/encounter context.
     config:
       tags: ['api', 'observation']
+      contract:
+        enforced: true
     columns:
       - name: observation_id
         description: FHIR Observation resource ID
-        tests:
-          - not_null
-          - unique
+        data_type: varchar
+        constraints:
+          - type: not_null
+          - type: unique
       - name: status
         description: Observation status (registered, preliminary, final, amended)
+        data_type: varchar
       - name: category_code
         description: Category code (vital-signs, laboratory, etc.)
+        data_type: varchar
       - name: code
         description: LOINC or other observation code
+        data_type: varchar
       - name: code_display
         description: Human-readable code display name
+        data_type: varchar
       - name: patient_id
         description: Reference to Patient resource
+        data_type: varchar
+        constraints:
+          - type: not_null
       - name: encounter_id
         description: Reference to Encounter resource (optional)
+        data_type: varchar
       - name: effective_datetime
         description: When the observation was made
+        data_type: timestamp_ntz
       - name: value_quantity
         description: Numeric value if applicable
+        data_type: number
       - name: value_unit
         description: Unit for numeric value
+        data_type: varchar
+      - name: value_string
+        description: String value if applicable
+        data_type: varchar
+      - name: source_file
+        description: Source file from ingestion
+        data_type: varchar
+      - name: ingestion_time
+        description: Timestamp when record was ingested
+        data_type: timestamp_ntz
       - name: value_display
         description: Formatted value for display
+        data_type: varchar
       - name: is_abnormal
         description: Boolean flag indicating if result is outside reference range
+        data_type: boolean
       - name: category_type
         description: Normalized category type for filtering
+        data_type: varchar

@@ -8,7 +8,7 @@ import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2_integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigwv2_authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import { PlatformSecrets } from './constructs/secrets-construct';
 
 export class HealthPlatformStack extends cdk.Stack {
     public readonly bucket: s3.Bucket;
@@ -21,6 +21,7 @@ export class HealthPlatformStack extends cdk.Stack {
     public readonly authorizerFunction: lambda.Function;
     public readonly httpApi: apigwv2.HttpApi;
     public readonly ingestionQueue: sqs.Queue;
+    public readonly secrets: PlatformSecrets;
 
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
@@ -31,14 +32,23 @@ export class HealthPlatformStack extends cdk.Stack {
             '__pycache__', 'tests', 'docs', 'output', 'htmlcov', '.coverage'
         ];
 
-        // Common DB environment variables (use Secrets Manager in production)
+        // ========================================================================
+        // Secrets Management
+        // ========================================================================
+
+        // Create centralized secrets for the platform
+        // After deployment, update secret values via AWS Console or CLI:
+        //   aws secretsmanager put-secret-value --secret-id health-platform/snowflake --secret-string '...'
+        this.secrets = new PlatformSecrets(this, 'Secrets', {
+            secretNamePrefix: 'health-platform',
+            createSecrets: true,
+        });
+
+        // Environment variables pointing to secrets (Lambdas fetch values at runtime)
         const dbEnvironment = {
-            DB_ACCOUNT: 'PLACEHOLDER_ACCOUNT',
-            DB_USER: 'PLACEHOLDER_USER',
-            DB_PASSWORD: 'PLACEHOLDER_PASSWORD',
-            DB_WAREHOUSE: 'PLACEHOLDER_WH',
+            ...this.secrets.getLambdaEnvironment(),
             DB_DATABASE: 'HEALTH_PLATFORM_DB',
-            DB_SCHEMA: 'RAW'
+            DB_SCHEMA: 'RAW',
         };
 
         // ========================================================================
@@ -181,19 +191,28 @@ export class HealthPlatformStack extends cdk.Stack {
             architecture: lambda.Architecture.ARM_64,
         });
 
+        // Grant FHIR API Lambdas permission to read Snowflake credentials
+        this.secrets.grantSnowflakeRead(this.patientApiFunction);
+        this.secrets.grantSnowflakeRead(this.encounterApiFunction);
+        this.secrets.grantSnowflakeRead(this.observationApiFunction);
+
         // ========================================================================
         // API Gateway
         // ========================================================================
 
-        // 9. Authorizer Lambda
+        // 9. Authorizer Lambda (with access to auth secrets for JWT validation)
         this.authorizerFunction = new lambda.Function(this, 'AuthorizerFunction', {
             runtime: lambda.Runtime.PYTHON_3_11,
             handler: 'health_platform.api.authorizer.handler.lambda_handler',
             code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
                 exclude: lambdaCodeExcludes
             }),
+            environment: this.secrets.getAuthorizerEnvironment(),
             architecture: lambda.Architecture.ARM_64,
         });
+
+        // Grant Authorizer permission to read auth secrets
+        this.secrets.grantAuthRead(this.authorizerFunction);
 
         // 10. HTTP API with Authorizer
         const authorizer = new apigwv2_authorizers.HttpLambdaAuthorizer(
@@ -330,6 +349,16 @@ export class HealthPlatformStack extends cdk.Stack {
         new cdk.CfnOutput(this, 'ApiEndpoint', {
             value: this.httpApi.apiEndpoint,
             description: 'HTTP API Endpoint URL'
+        });
+
+        // Secrets outputs
+        new cdk.CfnOutput(this, 'SnowflakeSecretArn', {
+            value: this.secrets.snowflakeSecret.secretArn,
+            description: 'ARN of Snowflake credentials secret'
+        });
+        new cdk.CfnOutput(this, 'AuthSecretArn', {
+            value: this.secrets.authSecret.secretArn,
+            description: 'ARN of authentication secret'
         });
     }
 }

@@ -199,6 +199,11 @@ For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
    - Use `text` for plain text, `bash` for shell commands, `json` for JSON, etc.
    - Example: ` ```python ` or ` ```bash ` or ` ```text `
 
+4. **MD024/no-duplicate-heading**: Headings must be unique
+   - No two headings in the document can have identical text
+   - Use unique, descriptive heading names to differentiate sections
+   - Example: Instead of two "#### Quick Validation", use "#### Markdown Validation" and "#### YAML Validation"
+
 #### Additional Best Practices
 
 1. **Consistent heading levels**: Don't skip heading levels (e.g., don't go from `##` to `####`)
@@ -211,7 +216,7 @@ For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
 
 5. **Proper list indentation**: Nested lists should be indented consistently (2-4 spaces)
 
-#### Quick Validation
+#### Markdown Validation
 
 Run this command to check all markdown files:
 
@@ -219,9 +224,99 @@ Run this command to check all markdown files:
 uv run pre-commit run markdownlint --all-files
 ```
 
+### YAML and OpenAPI Standards
+
+**All YAML files MUST pass schema validation.** OpenAPI specification files have additional requirements.
+
+#### Required Rules for YAML Files
+
+1. **Valid YAML syntax**: Proper indentation (2 spaces), no tabs, correct key-value formatting
+
+2. **No typos in root-level keys**: Critical keys like `openapi`, `info`, `paths` must be spelled exactly correct
+   - Common mistake: `eopenapi` instead of `openapi` (extra character)
+   - Schema validators will report "Missing property" and "Property X is not allowed"
+
+3. **Schema compliance**: Files with associated JSON schemas (like OpenAPI) must conform to the schema
+
+#### OpenAPI-Specific Requirements
+
+1. **Required root properties** (OpenAPI 3.0.x):
+   - `openapi`: Version string (e.g., `"3.0.3"`)
+   - `info`: Object with `title` and `version`
+   - `paths`: Object containing API endpoints
+
+2. **Operation requirements**: Each path operation should have:
+   - `responses`: At least one response defined
+   - `operationId`: Unique identifier (recommended)
+   - `tags`: Array for grouping (recommended)
+
+3. **Reference validation**: All `$ref` references must point to existing definitions
+
+#### YAML Validation
+
+Run this command to check YAML files:
+
+```bash
+uv run pre-commit run check-yaml --all-files
+```
+
+For comprehensive OpenAPI validation, use specialized tools:
+
+```bash
+# Install spectral for OpenAPI linting
+npm install -g @stoplight/spectral-cli
+
+# Validate OpenAPI spec
+spectral lint docs/api/openapi.yaml
+```
+
+#### Common Errors and Fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| "Missing property 'openapi'" | Typo in key name | Check spelling of `openapi:` |
+| "Property X is not allowed" | Typo or extra character | Remove typo, verify key names |
+| "Array does not contain required item" | Missing required array element | Add required items to array |
+| "$ref not found" | Broken reference path | Verify referenced component exists |
+
+### Mandatory Verification Before Task Completion
+
+**CRITICAL**: Before closing ANY task or claiming work is complete, you MUST verify it actually works. NO SHORTCUTS.
+
+#### Verification Requirements
+
+1. **Test the actual change** - Don't assume it works; prove it works
+2. **Run in a clean environment** - If fixing shell/env issues, test in a NEW shell session
+3. **Capture evidence** - Show output proving success, not just absence of errors
+4. **End-to-end validation** - Test the full workflow, not just individual components
+
+#### Verification Examples
+
+- **Code changes**: Run the code and verify output
+- **Configuration fixes**: Source the config in a fresh environment
+- **Infrastructure changes**: Deploy and test the actual resources
+- **Documentation**: Validate with linters AND review renders correctly
+
+#### What NOT To Do
+
+- ❌ Claim "it will work in a new terminal" without testing
+- ❌ Run partial tests and assume the rest works
+- ❌ Close tasks based on successful command execution without checking results
+- ❌ Skip verification because "it should work"
+
+#### What TO Do
+
+- ✅ Open a new shell/environment and verify the fix
+- ✅ Run the complete workflow end-to-end
+- ✅ Show concrete output proving success
+- ✅ If something can't be fully tested, explicitly document what was verified and what wasn't
+
+**If you cannot fully verify a change, do NOT close the task. Document what was done and what remains to be verified.**
+
 ### Important Rules
 
 - Be thorough and accurate when fixing reported errors - do not be sloppy, comprehensively assess all issues before attempting completion
+- **VERIFY your work actually works before claiming completion** - no shortcuts
 - Use bd for ALL task tracking
 - Always use `--json` flag for programmatic use
 - Link discovered work with `discovered-from` dependencies

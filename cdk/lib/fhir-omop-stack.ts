@@ -9,6 +9,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { StepFunctionsPipeline } from './step-functions-pipeline';
+import { PlatformSecrets } from './constructs/secrets-construct';
 
 export class FhirOmopStack extends cdk.Stack {
   public readonly vpc: ec2.Vpc;
@@ -40,7 +41,8 @@ export class FhirOmopStack extends cdk.Stack {
       'Athena': ec2.InterfaceVpcEndpointAwsService.ATHENA,
       'CloudWatch': ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
       'ECR': ec2.InterfaceVpcEndpointAwsService.ECR,
-      'ECR_DOCKER': ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER
+      'ECR_DOCKER': ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER,
+      'SecretsManager': ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER
     };
 
     Object.entries(interfaceEndpoints).forEach(([name, service]) => {
@@ -114,6 +116,16 @@ export class FhirOmopStack extends cdk.Stack {
       ]
     });
 
+    // 8b. Reference Platform Secrets (shared with HealthPlatformStack)
+    // These secrets are created by HealthPlatformStack; we reference them here
+    const platformSecrets = new PlatformSecrets(this, 'Secrets', {
+      secretNamePrefix: 'health-platform',
+      createSecrets: false,  // Reference existing secrets, don't create duplicates
+    });
+
+    // Grant execution role permission to read secrets (required for ECS secret injection)
+    platformSecrets.snowflakeSecret.grantRead(executionRole);
+
     // 9. Logging & Monitoring
     const logGroup = new logs.LogGroup(this, 'FhirOmopTaskLogs', {
       retention: logs.RetentionDays.ONE_WEEK,
@@ -147,6 +159,7 @@ export class FhirOmopStack extends cdk.Stack {
       executionRole
     });
 
+    // dbt container with Snowflake credentials injected from Secrets Manager
     dbtTaskDef.addContainer('DbtContainer', {
       image: ecs.ContainerImage.fromRegistry(this.node.tryGetContext('dbtImage') || 'public.ecr.aws/docker/library/python:3.11'),
       logging: ecs.LogDrivers.awsLogs({
@@ -157,7 +170,10 @@ export class FhirOmopStack extends cdk.Stack {
         S3_DATA_BUCKET: this.dataBucket.bucketName,
         GLUE_DB_NAME: this.glueDb.ref,
         DBT_TARGET: 'dev'
-      }
+      },
+      // Inject Snowflake credentials from Secrets Manager
+      // These map to dbt profiles.yml env_var() references
+      secrets: platformSecrets.getEcsSnowflakeSecrets(),
     });
 
     // 11. Alarms
