@@ -152,7 +152,7 @@ AI assistants often create planning and design documents during development:
 
 **Example .gitignore entry (optional):**
 
-```m
+```gitignore
 # AI planning documents (ephemeral)
 history/
 ```
@@ -201,15 +201,15 @@ For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
 
 #### Additional Best Practices
 
-4. **Consistent heading levels**: Don't skip heading levels (e.g., don't go from `##` to `####`)
+1. **Consistent heading levels**: Don't skip heading levels (e.g., don't go from `##` to `####`)
 
-5. **No trailing whitespace**: Lines should not end with spaces
+2. **No trailing whitespace**: Lines should not end with spaces
 
-6. **Single trailing newline**: Files should end with exactly one newline
+3. **Single trailing newline**: Files should end with exactly one newline
 
-7. **No hard tabs**: Use spaces for indentation (2 or 4 spaces)
+4. **No hard tabs**: Use spaces for indentation (2 or 4 spaces)
 
-8. **Proper list indentation**: Nested lists should be indented consistently (2-4 spaces)
+5. **Proper list indentation**: Nested lists should be indented consistently (2-4 spaces)
 
 #### Quick Validation
 
@@ -221,6 +221,7 @@ uv run pre-commit run markdownlint --all-files
 
 ### Important Rules
 
+- Be thorough and accurate when fixing reported errors - do not be sloppy, comprehensively assess all issues before attempting completion
 - Use bd for ALL task tracking
 - Always use `--json` flag for programmatic use
 - Link discovered work with `discovered-from` dependencies
