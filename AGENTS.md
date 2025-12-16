@@ -288,14 +288,15 @@ While writing, apply these rules:
   ```
 
   <!-- INCORRECT -->
-  ```
+  ```m
   echo "hello"
   ```
+
   ```
 
 - **Emphasis (MD036)**
   - [ ] Don't use bold/italic as pseudo-headings
-  - [ ] If emphasis looks like a heading, make it a real heading or prefix with `- `
+  - [ ] If emphasis looks like a heading, make it a real heading or prefix with `-`
   - [ ] Pattern: `- **Emphasis Heading**` not `**Emphasis Heading**`
 
 - **Links and References**
@@ -329,7 +330,7 @@ After writing, validate:
 |------|---------------|-----|
 | MD032 | Lists should be surrounded by blank lines | Add blank line before AND after list |
 | MD040 | Fenced code blocks should have a language | Add `bash`, `python`, `json`, `text`, etc. |
-| MD036 | Emphasis used instead of heading | Use real heading or prefix with `- ` |
+| MD036 | Emphasis used instead of heading | Use real heading or prefix with `-` |
 | MD024 | Multiple headings with same content | Make heading text unique |
 | MD022 | Headings should be surrounded by blank lines | Add blank line before AND after heading |
 | MD031 | Fenced code blocks should be surrounded by blank lines | Add blank line before AND after code block |
