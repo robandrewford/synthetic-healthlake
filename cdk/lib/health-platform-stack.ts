@@ -55,18 +55,70 @@ export class HealthPlatformStack extends cdk.Stack {
         // Infrastructure: S3 Bucket and SQS Queue
         // ========================================================================
 
-        // 1. Landing/Data Bucket
+        // 1. Landing/Data Bucket with Enhanced Security
         this.bucket = new s3.Bucket(this, 'HealthPlatformBucket', {
+            // Encryption: Server-side encryption with S3-managed keys
             encryption: s3.BucketEncryption.S3_MANAGED,
+
+            // Security: Block all public access
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+
+            // Security: Enforce HTTPS-only access
+            enforceSSL: true,
+
+            // Versioning for data protection and audit trail
+            versioned: true,
+
+            // Lifecycle rules for cost optimization
+            lifecycleRules: [
+                {
+                    // Move processed files to Intelligent-Tiering after 30 days
+                    id: 'ProcessedToIntelligentTiering',
+                    prefix: 'processed/',
+                    transitions: [
+                        {
+                            storageClass: s3.StorageClass.INTELLIGENT_TIERING,
+                            transitionAfter: cdk.Duration.days(30),
+                        },
+                    ],
+                },
+                {
+                    // Move landing files to Infrequent Access after 90 days
+                    id: 'LandingToIA',
+                    prefix: 'landing/',
+                    transitions: [
+                        {
+                            storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+                            transitionAfter: cdk.Duration.days(90),
+                        },
+                    ],
+                },
+                {
+                    // Delete incomplete multipart uploads after 7 days
+                    id: 'AbortIncompleteMultipartUploads',
+                    abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+                },
+                {
+                    // Expire non-current versions after 90 days (cost optimization)
+                    id: 'ExpireOldVersions',
+                    noncurrentVersionExpiration: cdk.Duration.days(90),
+                },
+            ],
+
+            // Development settings (change for production)
             autoDeleteObjects: true,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
+
+            // EventBridge for S3 event notifications
             eventBridgeEnabled: true,
+
+            // CORS for presigned URL uploads
             cors: [{
                 allowedMethods: [s3.HttpMethods.POST, s3.HttpMethods.PUT, s3.HttpMethods.HEAD, s3.HttpMethods.GET],
-                allowedOrigins: ['*'],
-                allowedHeaders: ['*']
-            }]
+                allowedOrigins: ['*'],  // Restrict in production
+                allowedHeaders: ['*'],
+                maxAge: 3600,
+            }],
         });
 
         // 2. Ingestion Queue (for async processing)
