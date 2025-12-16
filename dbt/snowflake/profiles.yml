@@ -1,17 +1,44 @@
-# Template profiles.yml for Snowflake
-# usage: export DBT_USER=... DBT_PASSWORD=... etc.
+# Health Platform - dbt Snowflake Profile
+# See: docs/development/env-variable-naming-convention.md
+#
+# Local development: Use direnv or source scripts/env-load.sh
+# AWS ECS: Secrets injected from AWS Secrets Manager
 
 health_platform:
   target: dev
   outputs:
     dev:
       type: snowflake
-      account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
-      password: "{{ env_var('DBT_SNOWFLAKE_PASSWORD') }}"
-      role: "{{ env_var('DBT_SNOWFLAKE_ROLE') }}"
-      database: HEALTH_PLATFORM_DB
-      warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
-      schema: ANALYTICS
-      threads: 4
+      account: "{{ env_var('HP_SNF_ACCT', 'your_account') }}"
+      user: "{{ env_var('HP_SNF_USER', 'your_user') }}"
+      password: "{{ env_var('HP_SNF_PASS', '') }}"
+      role: "{{ env_var('HP_SNF_ROLE', 'ACCOUNTADMIN') }}"
+      database: "{{ env_var('HP_SNF_DB', 'HEALTH_PLATFORM_DB') }}"
+      warehouse: "{{ env_var('HP_SNF_WH', 'COMPUTE_WH') }}"
+      schema: "{{ env_var('HP_SNF_SCHEMA', 'ANALYTICS') }}"
+      threads: "{{ env_var('HP_DBT_THREADS', '4') | int }}"
+      client_session_keep_alive: False
+
+    staging:
+      type: snowflake
+      account: "{{ env_var('HP_SNF_ACCT', 'your_account') }}"
+      user: "{{ env_var('HP_SNF_USER', 'your_user') }}"
+      password: "{{ env_var('HP_SNF_PASS', '') }}"
+      role: "{{ env_var('HP_SNF_ROLE', 'ACCOUNTADMIN') }}"
+      database: "{{ env_var('HP_SNF_DB', 'HEALTH_PLATFORM_DB') }}"
+      warehouse: "{{ env_var('HP_SNF_WH', 'COMPUTE_WH') }}"
+      schema: STAGING
+      threads: "{{ env_var('HP_DBT_THREADS', '4') | int }}"
+      client_session_keep_alive: False
+
+    prod:
+      type: snowflake
+      account: "{{ env_var('HP_SNF_ACCT', 'your_account') }}"
+      user: "{{ env_var('HP_SNF_USER', 'your_user') }}"
+      password: "{{ env_var('HP_SNF_PASS', '') }}"
+      role: "{{ env_var('HP_SNF_ROLE', 'ACCOUNTADMIN') }}"
+      database: "{{ env_var('HP_SNF_DB', 'HEALTH_PLATFORM_DB') }}"
+      warehouse: "{{ env_var('HP_SNF_WH', 'COMPUTE_WH') }}"
+      schema: PRODUCTION
+      threads: "{{ env_var('HP_DBT_THREADS', '8') | int }}"
       client_session_keep_alive: False

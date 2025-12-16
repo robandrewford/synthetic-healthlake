@@ -197,20 +197,25 @@ export class PlatformSecrets extends Construct {
    * These can be passed to container definitions to inject secrets as environment variables.
    *
    * The secret JSON fields are mapped to individual environment variables:
-   * - DB_ACCOUNT <- snowflake:account
-   * - DB_USER <- snowflake:user
-   * - DB_PASSWORD <- snowflake:password
-   * - etc.
+   * - HP_SNF_ACCT <- snowflake:account
+   * - HP_SNF_USER <- snowflake:user
+   * - HP_SNF_PASS <- snowflake:password
+   * - HP_SNF_ROLE <- snowflake:role
+   * - HP_SNF_WH <- snowflake:warehouse
+   * - HP_SNF_DB <- snowflake:database
+   *
+   * See: docs/development/env-variable-naming-convention.md
    *
    * @returns Map of environment variable name to ECS Secret
    */
   public getEcsSnowflakeSecrets(): { [key: string]: ecs.Secret } {
     return {
-      DBT_SNOWFLAKE_ACCOUNT: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'account'),
-      DBT_SNOWFLAKE_USER: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'user'),
-      DBT_SNOWFLAKE_PASSWORD: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'password'),
-      DBT_SNOWFLAKE_ROLE: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'role'),
-      DBT_SNOWFLAKE_WAREHOUSE: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'warehouse'),
+      HP_SNF_ACCT: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'account'),
+      HP_SNF_USER: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'user'),
+      HP_SNF_PASS: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'password'),
+      HP_SNF_ROLE: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'role'),
+      HP_SNF_WH: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'warehouse'),
+      HP_SNF_DB: ecs.Secret.fromSecretsManager(this.snowflakeSecret, 'database'),
     };
   }
 
