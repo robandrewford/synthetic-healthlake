@@ -23,6 +23,7 @@
 - [Dependency Scanning](security/dependency-scanning.md)
 
 ## 4. Operations
+
 - [Operations Guide](operations/operations.md)
 - [Observability Plan](operations/observability-plan.md)
 - [Cost Management Strategy](operations/cost-management-strategy.md)

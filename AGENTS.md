@@ -224,6 +224,132 @@ Run this command to check all markdown files:
 uv run pre-commit run markdownlint --all-files
 ```
 
+<!-- <new-rule-1> -->
+
+### MECE Markdownlint Compliance Checklist
+
+**CRITICAL**: This checklist is MECE (Mutually Exclusive, Collectively Exhaustive) and covers ALL common markdownlint violations. Follow this checklist when writing ANY markdown documentation.
+
+#### Pre-Write Checklist (Structure)
+
+Before writing markdown content, plan:
+
+- [ ] **Document structure**: Outline heading hierarchy (H1 → H2 → H3, no skipping)
+- [ ] **Unique headings**: Ensure all headings have unique text within the document
+- [ ] **Section boundaries**: Plan blank lines between all structural elements
+
+#### During-Write Checklist (Content)
+
+While writing, apply these rules:
+
+- **Headings**
+  - [ ] Use ATX-style headings (`#`, `##`, `###`) not Setext-style
+  - [ ] Include exactly one space after `#` symbols
+  - [ ] Never skip heading levels (don't go from `##` to `####`)
+  - [ ] Ensure heading text is unique in the document (MD024)
+  - [ ] Don't use trailing punctuation in headings (except `?`)
+
+- **Lists (MD032 - MOST COMMON VIOLATION)**
+  - [ ] **ALWAYS** insert a blank line BEFORE the first list item
+  - [ ] **ALWAYS** insert a blank line AFTER the last list item
+  - [ ] This applies to ALL list types: unordered (`-`), ordered (`1.`), checklists (`- [ ]`)
+  - [ ] Pattern: `paragraph → blank → list → blank → paragraph`
+
+  ```markdown
+  <!-- CORRECT -->
+  Here is some text.
+
+  - Item 1
+  - Item 2
+
+  More text here.
+
+  <!-- INCORRECT -->
+  Here is some text.
+  - Item 1
+  - Item 2
+  More text here.
+  ```
+
+- **Nested Lists**
+  - [ ] Use consistent indentation (2 spaces recommended)
+  - [ ] Blank lines not required between nested levels within the same list
+  - [ ] Blank lines required before/after the entire list block
+
+- **Code Blocks (MD040)**
+  - [ ] **ALWAYS** specify language after opening backticks
+  - [ ] Use `text` for plain output, `bash` for shell, `json` for JSON, etc.
+  - [ ] Pattern: ` ```language ` never just ` ``` `
+
+  ```markdown
+  <!-- CORRECT -->
+  ```bash
+  echo "hello"
+  ```
+
+  <!-- INCORRECT -->
+  ```
+  echo "hello"
+  ```
+  ```
+
+- **Emphasis (MD036)**
+  - [ ] Don't use bold/italic as pseudo-headings
+  - [ ] If emphasis looks like a heading, make it a real heading or prefix with `- `
+  - [ ] Pattern: `- **Emphasis Heading**` not `**Emphasis Heading**`
+
+- **Links and References**
+  - [ ] Use proper link syntax `[text](url)`
+  - [ ] Reference-style links must have matching definitions
+  - [ ] No empty links or link text
+
+- **Tables**
+  - [ ] Include header row separator (`|---|---|`)
+  - [ ] Consistent column counts across all rows
+  - [ ] Surround with blank lines
+
+- **Whitespace**
+  - [ ] No trailing spaces on any line
+  - [ ] No hard tabs (use spaces only)
+  - [ ] Single newline at end of file
+  - [ ] No multiple consecutive blank lines
+
+#### Post-Write Checklist (Validation)
+
+After writing, validate:
+
+- [ ] Run `uv run pre-commit run markdownlint --files <your-file.md>`
+- [ ] Fix ALL reported errors before committing
+- [ ] Re-run validation to confirm fixes
+- [ ] If errors persist, check this checklist item-by-item
+
+#### Quick Reference: Common Violations → Fixes
+
+| Rule | Error Message | Fix |
+|------|---------------|-----|
+| MD032 | Lists should be surrounded by blank lines | Add blank line before AND after list |
+| MD040 | Fenced code blocks should have a language | Add `bash`, `python`, `json`, `text`, etc. |
+| MD036 | Emphasis used instead of heading | Use real heading or prefix with `- ` |
+| MD024 | Multiple headings with same content | Make heading text unique |
+| MD022 | Headings should be surrounded by blank lines | Add blank line before AND after heading |
+| MD031 | Fenced code blocks should be surrounded by blank lines | Add blank line before AND after code block |
+| MD047 | Files should end with a single newline | Ensure exactly one `\n` at EOF |
+| MD009 | Trailing spaces | Remove spaces at end of lines |
+| MD010 | Hard tabs | Replace tabs with spaces |
+| MD001 | Heading levels should only increment by one | Don't skip heading levels |
+
+#### Cognitive Pattern for Markdown Writing
+
+Apply this mental model: **"Every block needs breathing room"**
+
+1. **Heading?** → blank before, blank after
+2. **List?** → blank before, blank after
+3. **Code block?** → blank before, blank after, specify language
+4. **Table?** → blank before, blank after
+5. **Between sections?** → blank line separates them
+
+<!-- </new-rule-1> -->
+
 ### YAML and OpenAPI Standards
 
 **All YAML files MUST pass schema validation.** OpenAPI specification files have additional requirements.
