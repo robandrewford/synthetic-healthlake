@@ -13,3 +13,9 @@ cdk/cdk.out/
 
 # Security scan reports
 security-reports/
+
+# Generated synthetic data (regenerate with unified_generator.py)
+output/sample-10k/
+output/small/
+output/medium/
+output/large/
