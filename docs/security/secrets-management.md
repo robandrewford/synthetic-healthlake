@@ -9,6 +9,24 @@ The platform uses AWS Secrets Manager to securely store and retrieve sensitive c
 - **Snowflake database credentials** - Used by API Lambdas and dbt ECS tasks
 - **Authentication secrets** - JWT signing keys and API key hashes for the authorizer
 
+## Environment Variable Naming Convention
+
+All environment variables follow the pattern: `{PROJECT}_{SERVICE}_{OBJECT}`
+
+See [Environment Variable Naming Convention](../development/env-variable-naming-convention.md) for the full specification.
+
+### Snowflake Variables (HP_SNF_*)
+
+| Variable | Description |
+|----------|-------------|
+| `HP_SNF_ACCT` | Account locator (e.g., xy12345.us-east-1) |
+| `HP_SNF_USER` | Service account username |
+| `HP_SNF_PASS` | Service account password |
+| `HP_SNF_ROLE` | Default role to assume |
+| `HP_SNF_WH` | Compute warehouse name |
+| `HP_SNF_DB` | Default database |
+| `HP_SNF_SCHEMA` | Default schema |
+
 ## Architecture
 
 ```text
@@ -37,7 +55,7 @@ The platform uses AWS Secrets Manager to securely store and retrieve sensitive c
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        ECS Fargate Tasks (dbt)                          │
 │  Secrets injected as environment variables:                             │
-│  DBT_SNOWFLAKE_ACCOUNT, DBT_SNOWFLAKE_USER, DBT_SNOWFLAKE_PASSWORD, etc│
+│  HP_SNF_ACCT, HP_SNF_USER, HP_SNF_PASS, HP_SNF_ROLE, HP_SNF_WH, etc.   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -98,7 +116,7 @@ const secrets = new PlatformSecrets(this, 'Secrets', {
 
 // Get ECS secrets for container injection
 const ecsSecrets = secrets.getEcsSnowflakeSecrets();
-// Returns: { DBT_SNOWFLAKE_ACCOUNT: Secret, DBT_SNOWFLAKE_USER: Secret, ... }
+// Returns: { HP_SNF_ACCT: Secret, HP_SNF_USER: Secret, ... }
 ```
 
 ## Lambda Runtime Usage
@@ -144,11 +162,41 @@ health_platform:
   outputs:
     dev:
       type: snowflake
-      account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
-      password: "{{ env_var('DBT_SNOWFLAKE_PASSWORD') }}"
-      role: "{{ env_var('DBT_SNOWFLAKE_ROLE') }}"
-      warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE') }}"
+      account: "{{ env_var('HP_SNF_ACCT') }}"
+      user: "{{ env_var('HP_SNF_USER') }}"
+      password: "{{ env_var('HP_SNF_PASS') }}"
+      role: "{{ env_var('HP_SNF_ROLE') }}"
+      warehouse: "{{ env_var('HP_SNF_WH') }}"
+      database: "{{ env_var('HP_SNF_DB') }}"
+```
+
+## Local Development
+
+For local development, use one of these approaches:
+
+### Option 1: direnv (Recommended)
+
+```bash
+# One-time setup
+brew install direnv
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+source ~/.zshrc
+
+# In the project directory
+cp .env.example .env
+# Edit .env with your credentials
+direnv allow .
+```
+
+### Option 2: Manual Environment Loading
+
+```bash
+# Load environment variables
+source scripts/env-load.sh
+
+# Run dbt commands
+./scripts/run-dbt.sh debug
+./scripts/run-dbt.sh run
 ```
 
 ## Initial Setup
@@ -247,8 +295,15 @@ const secrets = new PlatformSecrets(this, 'Secrets', {
 2. Check the secret name prefix matches (`health-platform`)
 3. Ensure you're in the correct AWS region
 
+### Local Environment Issues
+
+1. Verify `.env` file exists and has correct values
+2. If using direnv, run `direnv allow .` after changes
+3. Check environment with: `echo $HP_SNF_ACCT`
+
 ## Related Documentation
 
+- [Environment Variable Naming Convention](../development/env-variable-naming-convention.md)
 - [AWS Secrets Manager Best Practices](https://docs.aws.amazon.com/secretsmanager/latest/userguide/best-practices.html)
 - [ECS Secrets Documentation](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data-secrets.html)
 - [Lambda Environment Variables](https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html)
