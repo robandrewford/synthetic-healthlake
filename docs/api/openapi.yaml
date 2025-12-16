@@ -14,8 +14,66 @@ info:
     Include the JWT token in the Authorization header.
 
     ## FHIR Compliance
-    Search responses return FHIR Bundle resources with type "searchset".
-    Single resource reads return the FHIR resource directly.
+    This API follows FHIR R4 specifications:
+    - Search responses return FHIR Bundle resources with type "searchset"
+    - Single resource reads return the FHIR resource directly
+    - Error responses use FHIR OperationOutcome format
+    - Date/time formats follow ISO 8601 standard
+
+    ## Multi-Tenancy
+    All data access is scoped to the organization in the JWT token.
+    Organizations can only access their own data (Bezos Mandate compliance).
+
+    ## Pagination
+    Use `_count` and `_offset` parameters for pagination:
+    - `_count`: Number of results per page (default 100, max 1000)
+    - `_offset`: Starting position (default 0)
+
+    The Bundle response includes a `total` field with the total number of matching resources.
+
+    ## Rate Limiting
+    - API Gateway enforces rate limits per API key
+    - Default: 1000 requests per second burst, 500 sustained
+    - 429 Too Many Requests response when limits exceeded
+
+    ## Usage Examples
+
+    ### Search Patients by Name
+    ```
+    GET /Patient?name=Smith&_count=10
+    Authorization: Bearer <jwt-token>
+    ```
+
+    ### Get Observations for a Patient
+    ```
+    GET /Observation?patient=patient-123&category=vital-signs
+    Authorization: Bearer <jwt-token>
+    ```
+
+    ### Submit FHIR Bundle via Webhook
+    ```
+    POST /ingestion/fhir/Bundle
+    Authorization: Bearer <jwt-token>
+    Content-Type: application/fhir+json
+
+    {
+      "resourceType": "Bundle",
+      "type": "transaction",
+      "entry": [...]
+    }
+    ```
+
+    ### Generate Upload URL for Bulk Data
+    ```
+    POST /ingestion/upload-url
+    Authorization: Bearer <jwt-token>
+    Content-Type: application/json
+
+    {
+      "contentType": "application/fhir+ndjson",
+      "filename": "bulk-data.ndjson"
+    }
+    ```
   version: 1.0.0
   contact:
     name: Health Platform Team
@@ -471,6 +529,15 @@ components:
                 type: array
                 items:
                   type: string
+      example:
+        resourceType: Patient
+        id: patient-123
+        active: true
+        gender: male
+        birthDate: "1985-03-15"
+        name:
+          - family: Smith
+            given: ["John", "Michael"]
 
     Encounter:
       type: object
@@ -508,6 +575,18 @@ components:
             end:
               type: string
               format: date-time
+      example:
+        resourceType: Encounter
+        id: encounter-456
+        status: finished
+        class:
+          code: AMB
+          display: Ambulatory
+        subject:
+          reference: Patient/patient-123
+        period:
+          start: "2024-01-15T09:30:00Z"
+          end: "2024-01-15T10:15:00Z"
 
     Observation:
       type: object
@@ -547,6 +626,9 @@ components:
           properties:
             reference:
               type: string
+        effectiveDateTime:
+          type: string
+          format: date-time
         valueQuantity:
           type: object
           properties:
@@ -554,6 +636,26 @@ components:
               type: number
             unit:
               type: string
+      example:
+        resourceType: Observation
+        id: observation-789
+        status: final
+        category:
+          - coding:
+              - system: http://terminology.hl7.org/CodeSystem/observation-category
+                code: vital-signs
+                display: Vital Signs
+        code:
+          coding:
+            - system: http://loinc.org
+              code: "8867-4"
+              display: Heart rate
+        subject:
+          reference: Patient/patient-123
+        effectiveDateTime: "2024-01-15T09:45:00Z"
+        valueQuantity:
+          value: 72
+          unit: beats/minute
 
     JobAccepted:
       type: object
@@ -574,6 +676,15 @@ components:
         createdAt:
           type: string
           format: date-time
+      example:
+        jobId: job-20241215094530-a1b2c3d4
+        status: accepted
+        message: Bundle accepted for processing
+        resourceCount:
+          Patient: 5
+          Encounter: 12
+          Observation: 48
+        createdAt: "2024-12-15T09:45:30Z"
 
     JobStatus:
       type: object
@@ -646,11 +757,50 @@ components:
           type: string
         statusCode:
           type: integer
+      example:
+        error: Invalid pagination parameters
+        statusCode: 400
+
+    OperationOutcome:
+      type: object
+      description: FHIR OperationOutcome for error responses from FHIR endpoints
+      required:
+        - resourceType
+        - issue
+      properties:
+        resourceType:
+          type: string
+          enum: [OperationOutcome]
+        issue:
+          type: array
+          items:
+            type: object
+            required:
+              - severity
+              - code
+            properties:
+              severity:
+                type: string
+                enum: [fatal, error, warning, information]
+              code:
+                type: string
+                enum: [invalid, structure, required, value, invariant, security, login, unknown, expired, forbidden, suppressed, processing, not-supported, duplicate, multiple-matches, not-found, deleted, too-long, code-invalid, extension, too-costly, business-rule, conflict, transient, lock-error, no-store, exception, timeout, incomplete, throttled, informational]
+              diagnostics:
+                type: string
+      example:
+        resourceType: OperationOutcome
+        issue:
+          - severity: error
+            code: not-found
+            diagnostics: Patient not found
 
   responses:
     BadRequest:
       description: Bad request - invalid parameters
       content:
+        application/fhir+json:
+          schema:
+            $ref: '#/components/schemas/OperationOutcome'
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
@@ -658,6 +808,9 @@ components:
     Unauthorized:
       description: Unauthorized - missing or invalid token
       content:
+        application/fhir+json:
+          schema:
+            $ref: '#/components/schemas/OperationOutcome'
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
@@ -665,6 +818,15 @@ components:
     NotFound:
       description: Resource not found
       content:
+        application/fhir+json:
+          schema:
+            $ref: '#/components/schemas/OperationOutcome'
+          example:
+            resourceType: OperationOutcome
+            issue:
+              - severity: error
+                code: not-found
+                diagnostics: Resource not found
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
@@ -672,6 +834,15 @@ components:
     InternalError:
       description: Internal server error
       content:
+        application/fhir+json:
+          schema:
+            $ref: '#/components/schemas/OperationOutcome'
+          example:
+            resourceType: OperationOutcome
+            issue:
+              - severity: error
+                code: processing
+                diagnostics: Internal Server Error
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
