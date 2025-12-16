@@ -1,7 +1,0 @@
-fhir_omop:
-  target: dev
-  outputs:
-    dev:
-      type: duckdb
-      path: 'synthetic_healthlake.duckdb'
-      schema: 'main'

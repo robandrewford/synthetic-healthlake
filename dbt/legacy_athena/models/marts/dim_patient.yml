@@ -1,9 +1,0 @@
-version: 2
-
-models:
-  - name: dim_patient
-    columns:
-      - name: person_id
-        tests:
-          - not_null
-          - unique

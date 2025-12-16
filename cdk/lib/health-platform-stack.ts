@@ -7,16 +7,43 @@ import * as path from 'path';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2_integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigwv2_authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export class HealthPlatformStack extends cdk.Stack {
     public readonly bucket: s3.Bucket;
     public readonly ingestionProcessor: lambda.Function;
     public readonly patientApiFunction: lambda.Function;
+    public readonly encounterApiFunction: lambda.Function;
+    public readonly observationApiFunction: lambda.Function;
+    public readonly webhookFunction: lambda.Function;
+    public readonly presignedUrlFunction: lambda.Function;
     public readonly authorizerFunction: lambda.Function;
     public readonly httpApi: apigwv2.HttpApi;
+    public readonly ingestionQueue: sqs.Queue;
 
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
+
+        // Common Lambda code asset configuration
+        const lambdaCodeExcludes = [
+            'cdk', 'node_modules', '.git', '.venv', 'venv', '.beads',
+            '__pycache__', 'tests', 'docs', 'output', 'htmlcov', '.coverage'
+        ];
+
+        // Common DB environment variables (use Secrets Manager in production)
+        const dbEnvironment = {
+            DB_ACCOUNT: 'PLACEHOLDER_ACCOUNT',
+            DB_USER: 'PLACEHOLDER_USER',
+            DB_PASSWORD: 'PLACEHOLDER_PASSWORD',
+            DB_WAREHOUSE: 'PLACEHOLDER_WH',
+            DB_DATABASE: 'HEALTH_PLATFORM_DB',
+            DB_SCHEMA: 'RAW'
+        };
+
+        // ========================================================================
+        // Infrastructure: S3 Bucket and SQS Queue
+        // ========================================================================
 
         // 1. Landing/Data Bucket
         this.bucket = new s3.Bucket(this, 'HealthPlatformBucket', {
@@ -26,22 +53,36 @@ export class HealthPlatformStack extends cdk.Stack {
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             eventBridgeEnabled: true,
             cors: [{
-                allowedMethods: [s3.HttpMethods.POST, s3.HttpMethods.PUT, s3.HttpMethods.HEAD],
+                allowedMethods: [s3.HttpMethods.POST, s3.HttpMethods.PUT, s3.HttpMethods.HEAD, s3.HttpMethods.GET],
                 allowedOrigins: ['*'],
                 allowedHeaders: ['*']
             }]
         });
 
-        // 2. Ingestion Lambda
-        // We mount the entire project root to allow importing 'health_platform' package
+        // 2. Ingestion Queue (for async processing)
+        this.ingestionQueue = new sqs.Queue(this, 'IngestionQueue', {
+            queueName: `${id}-ingestion-queue`,
+            visibilityTimeout: cdk.Duration.seconds(300),
+            retentionPeriod: cdk.Duration.days(7),
+            deadLetterQueue: {
+                queue: new sqs.Queue(this, 'IngestionDLQ', {
+                    queueName: `${id}-ingestion-dlq`,
+                    retentionPeriod: cdk.Duration.days(14)
+                }),
+                maxReceiveCount: 3
+            }
+        });
+
+        // ========================================================================
+        // Ingestion Lambdas
+        // ========================================================================
+
+        // 3. Ingestion Processor Lambda (S3 event triggered)
         this.ingestionProcessor = new lambda.Function(this, 'IngestionProcessor', {
             runtime: lambda.Runtime.PYTHON_3_11,
             handler: 'health_platform.ingestion.processor.handler.lambda_handler',
             code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
-                exclude: [
-                    'cdk', 'node_modules', '.git', '.venv', 'venv', '.beads',
-                    '__pycache__', 'tests', 'docs', 'output'
-                ]
+                exclude: lambdaCodeExcludes
             }),
             environment: {
                 PROCESSED_PREFIX: 'processed/'
@@ -50,66 +91,117 @@ export class HealthPlatformStack extends cdk.Stack {
             memorySize: 256,
             architecture: lambda.Architecture.ARM_64,
         });
-
-        // 3. Permissions
         this.bucket.grantReadWrite(this.ingestionProcessor);
 
-        // 4. S3 Event Notification (trigger on 'landing/' prefix)
+        // S3 Event Notification (trigger on 'landing/' prefix)
         this.bucket.addEventNotification(
             s3.EventType.OBJECT_CREATED,
             new s3n.LambdaDestination(this.ingestionProcessor),
             { prefix: 'landing/', suffix: '.ndjson' }
         );
 
-        // ========================================================================
-        // Session 3: API Foundation
-        // ========================================================================
-
-        // 5. Patient API Lambda
-        this.patientApiFunction = new lambda.Function(this, 'PatientApiFunction', {
+        // 4. Webhook Ingestion Lambda
+        this.webhookFunction = new lambda.Function(this, 'WebhookFunction', {
             runtime: lambda.Runtime.PYTHON_3_11,
-            handler: 'health_platform.api.patient.handler.lambda_handler',
+            handler: 'health_platform.ingestion.webhook.handler.lambda_handler',
             code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
-                exclude: [
-                    'cdk', 'node_modules', '.git', '.venv', 'venv', '.beads',
-                    '__pycache__', 'tests', 'docs', 'output'
-                ]
+                exclude: lambdaCodeExcludes
             }),
             environment: {
-                // Placeholders for DB credentials.
-                // In production, use AWS Secrets Manager.
-                DB_ACCOUNT: 'PLACEHOLDER_ACCOUNT',
-                DB_USER: 'PLACEHOLDER_USER',
-                DB_PASSWORD: 'PLACEHOLDER_PASSWORD',
-                DB_WAREHOUSE: 'PLACEHOLDER_WH',
-                DB_DATABASE: 'HEALTH_PLATFORM_DB',
-                DB_SCHEMA: 'RAW'
+                UPLOAD_BUCKET: this.bucket.bucketName,
+                UPLOAD_PREFIX: 'incoming/fhir',
+                INGESTION_QUEUE_URL: this.ingestionQueue.queueUrl
             },
             timeout: cdk.Duration.seconds(30),
             memorySize: 256,
             architecture: lambda.Architecture.ARM_64,
         });
+        this.bucket.grantWrite(this.webhookFunction);
+        this.ingestionQueue.grantSendMessages(this.webhookFunction);
 
-        // 6. Authorizer Lambda
+        // 5. Presigned URL Lambda
+        this.presignedUrlFunction = new lambda.Function(this, 'PresignedUrlFunction', {
+            runtime: lambda.Runtime.PYTHON_3_11,
+            handler: 'health_platform.ingestion.presigned.handler.lambda_handler',
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
+                exclude: lambdaCodeExcludes
+            }),
+            environment: {
+                UPLOAD_BUCKET: this.bucket.bucketName,
+                UPLOAD_PREFIX: 'incoming/fhir',
+                PRESIGNED_URL_EXPIRY: '3600'
+            },
+            timeout: cdk.Duration.seconds(10),
+            memorySize: 128,
+            architecture: lambda.Architecture.ARM_64,
+        });
+        // Grant S3 PutObject for presigned URL generation
+        this.bucket.grantPut(this.presignedUrlFunction);
+
+        // ========================================================================
+        // FHIR API Lambdas
+        // ========================================================================
+
+        // 6. Patient API Lambda
+        this.patientApiFunction = new lambda.Function(this, 'PatientApiFunction', {
+            runtime: lambda.Runtime.PYTHON_3_11,
+            handler: 'health_platform.api.patient.handler.lambda_handler',
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
+                exclude: lambdaCodeExcludes
+            }),
+            environment: dbEnvironment,
+            timeout: cdk.Duration.seconds(30),
+            memorySize: 256,
+            architecture: lambda.Architecture.ARM_64,
+        });
+
+        // 7. Encounter API Lambda
+        this.encounterApiFunction = new lambda.Function(this, 'EncounterApiFunction', {
+            runtime: lambda.Runtime.PYTHON_3_11,
+            handler: 'health_platform.api.encounter.handler.lambda_handler',
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
+                exclude: lambdaCodeExcludes
+            }),
+            environment: dbEnvironment,
+            timeout: cdk.Duration.seconds(30),
+            memorySize: 256,
+            architecture: lambda.Architecture.ARM_64,
+        });
+
+        // 8. Observation API Lambda
+        this.observationApiFunction = new lambda.Function(this, 'ObservationApiFunction', {
+            runtime: lambda.Runtime.PYTHON_3_11,
+            handler: 'health_platform.api.observation.handler.lambda_handler',
+            code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
+                exclude: lambdaCodeExcludes
+            }),
+            environment: dbEnvironment,
+            timeout: cdk.Duration.seconds(30),
+            memorySize: 256,
+            architecture: lambda.Architecture.ARM_64,
+        });
+
+        // ========================================================================
+        // API Gateway
+        // ========================================================================
+
+        // 9. Authorizer Lambda
         this.authorizerFunction = new lambda.Function(this, 'AuthorizerFunction', {
             runtime: lambda.Runtime.PYTHON_3_11,
             handler: 'health_platform.api.authorizer.handler.lambda_handler',
             code: lambda.Code.fromAsset(path.join(__dirname, '../../'), {
-                exclude: [
-                    'cdk', 'node_modules', '.git', '.venv', 'venv', '.beads',
-                    '__pycache__', 'tests', 'docs', 'output'
-                ]
+                exclude: lambdaCodeExcludes
             }),
             architecture: lambda.Architecture.ARM_64,
         });
 
-        // 7. API Gateway (HTTP API)
+        // 10. HTTP API with Authorizer
         const authorizer = new apigwv2_authorizers.HttpLambdaAuthorizer(
             'DefaultAuthorizer',
             this.authorizerFunction,
             {
                 authorizerName: 'CustomLambdaAuthorizer',
-                responseTypes: [apigwv2_authorizers.HttpLambdaResponseType.SIMPLE], // V2 Simple Response
+                responseTypes: [apigwv2_authorizers.HttpLambdaResponseType.SIMPLE],
             }
         );
 
@@ -118,28 +210,122 @@ export class HealthPlatformStack extends cdk.Stack {
             defaultAuthorizer: authorizer,
             corsPreflight: {
                 allowOrigins: ['*'],
-                allowMethods: [apigwv2.CorsHttpMethod.GET],
-                allowHeaders: ['Authorization', 'Content-Type'],
+                allowMethods: [
+                    apigwv2.CorsHttpMethod.GET,
+                    apigwv2.CorsHttpMethod.POST,
+                    apigwv2.CorsHttpMethod.OPTIONS
+                ],
+                allowHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
             }
         });
 
-        // 8. Routes
+        // ========================================================================
+        // API Routes
+        // ========================================================================
+
+        // Patient Routes
+        const patientIntegration = new apigwv2_integrations.HttpLambdaIntegration(
+            'PatientIntegration',
+            this.patientApiFunction
+        );
         this.httpApi.addRoutes({
-            path: '/patient/{patientId}',
+            path: '/Patient',
             methods: [apigwv2.HttpMethod.GET],
-            integration: new apigwv2_integrations.HttpLambdaIntegration(
-                'PatientIntegration',
-                this.patientApiFunction
-            ),
+            integration: patientIntegration,
+        });
+        this.httpApi.addRoutes({
+            path: '/Patient/{id}',
+            methods: [apigwv2.HttpMethod.GET],
+            integration: patientIntegration,
         });
 
-        // 6. Outputs
+        // Encounter Routes
+        const encounterIntegration = new apigwv2_integrations.HttpLambdaIntegration(
+            'EncounterIntegration',
+            this.encounterApiFunction
+        );
+        this.httpApi.addRoutes({
+            path: '/Encounter',
+            methods: [apigwv2.HttpMethod.GET],
+            integration: encounterIntegration,
+        });
+        this.httpApi.addRoutes({
+            path: '/Encounter/{id}',
+            methods: [apigwv2.HttpMethod.GET],
+            integration: encounterIntegration,
+        });
+
+        // Observation Routes
+        const observationIntegration = new apigwv2_integrations.HttpLambdaIntegration(
+            'ObservationIntegration',
+            this.observationApiFunction
+        );
+        this.httpApi.addRoutes({
+            path: '/Observation',
+            methods: [apigwv2.HttpMethod.GET],
+            integration: observationIntegration,
+        });
+        this.httpApi.addRoutes({
+            path: '/Observation/{id}',
+            methods: [apigwv2.HttpMethod.GET],
+            integration: observationIntegration,
+        });
+
+        // Ingestion Routes
+        const webhookIntegration = new apigwv2_integrations.HttpLambdaIntegration(
+            'WebhookIntegration',
+            this.webhookFunction
+        );
+        this.httpApi.addRoutes({
+            path: '/ingestion/fhir/Bundle',
+            methods: [apigwv2.HttpMethod.POST],
+            integration: webhookIntegration,
+        });
+        this.httpApi.addRoutes({
+            path: '/ingestion/jobs/{jobId}',
+            methods: [apigwv2.HttpMethod.GET],
+            integration: webhookIntegration,
+        });
+
+        const presignedIntegration = new apigwv2_integrations.HttpLambdaIntegration(
+            'PresignedIntegration',
+            this.presignedUrlFunction
+        );
+        this.httpApi.addRoutes({
+            path: '/ingestion/upload-url',
+            methods: [apigwv2.HttpMethod.POST],
+            integration: presignedIntegration,
+        });
+
+        // ========================================================================
+        // Outputs
+        // ========================================================================
+
         new cdk.CfnOutput(this, 'HealthBucketName', {
             value: this.bucket.bucketName,
-            description: 'Landing bucket for NDJSON files'
+            description: 'Data lake bucket for FHIR files'
+        });
+        new cdk.CfnOutput(this, 'IngestionQueueUrl', {
+            value: this.ingestionQueue.queueUrl,
+            description: 'SQS queue URL for ingestion processing'
         });
         new cdk.CfnOutput(this, 'IngestionFunctionArn', {
             value: this.ingestionProcessor.functionArn
+        });
+        new cdk.CfnOutput(this, 'PatientApiFunctionArn', {
+            value: this.patientApiFunction.functionArn
+        });
+        new cdk.CfnOutput(this, 'EncounterApiFunctionArn', {
+            value: this.encounterApiFunction.functionArn
+        });
+        new cdk.CfnOutput(this, 'ObservationApiFunctionArn', {
+            value: this.observationApiFunction.functionArn
+        });
+        new cdk.CfnOutput(this, 'WebhookFunctionArn', {
+            value: this.webhookFunction.functionArn
+        });
+        new cdk.CfnOutput(this, 'PresignedUrlFunctionArn', {
+            value: this.presignedUrlFunction.functionArn
         });
         new cdk.CfnOutput(this, 'ApiEndpoint', {
             value: this.httpApi.apiEndpoint,
