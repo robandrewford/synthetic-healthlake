@@ -313,8 +313,67 @@ Some services have free tier allowances (first 12 months):
 
 ---
 
+---
+
+## Per-Patient Cost Analysis
+
+### Storage Costs per Patient
+
+Based on actual generated data sizes:
+
+| Format | Storage per Patient | Monthly S3 Cost (10k patients) | Monthly S3 Cost (1M patients) |
+|--------|--------------------|-----------------------------|------------------------------|
+| FHIR NDJSON | ~590 bytes | $0.0001 | $0.014 |
+| OMOP Parquet (all tables) | ~117 bytes | $0.00003 | $0.003 |
+| **Combined** | ~707 bytes | **$0.00016** | **$0.016** |
+
+### Processing Costs per Patient
+
+| Process | Cost per Patient | Cost per 10k | Cost per 1M |
+|---------|-----------------|--------------|-------------|
+| Generation (Fargate) | $0.00001 | $0.10 | $10.00 |
+| dbt Transformation | $0.000005 | $0.05 | $5.00 |
+| Query (Athena) | $0.000002 | $0.02 | $2.00 |
+| **Total Processing** | **$0.000017** | **$0.17** | **$17.00** |
+
+### Total Cost per Patient (Monthly)
+
+| Scale | Patients | Storage | Processing | Infrastructure | Total/Month |
+|-------|----------|---------|------------|----------------|-------------|
+| Small | 1,000 | $0.02 | $0.02 | $92 | $92.04 |
+| Medium | 10,000 | $0.16 | $0.17 | $92 | $92.33 |
+| Large | 100,000 | $1.60 | $1.70 | $92 | $95.30 |
+| XLarge | 1,000,000 | $16.00 | $17.00 | $125 | $158.00 |
+
+- **Note**: Infrastructure costs dominate at small scale; data costs dominate at large scale
+- **Break-even**: ~500k patients before data costs match infrastructure costs
+
+### Cost Optimization by Scale
+
+#### Small Scale (< 10k patients)
+
+- Focus on infrastructure optimization (VPC endpoints)
+- Data costs are negligible
+- Consider serverless-only architecture
+
+#### Medium Scale (10k - 100k patients)
+
+- Balance between infrastructure and data costs
+- Enable S3 Intelligent-Tiering
+- Use Fargate Spot for batch processing
+
+#### Large Scale (> 100k patients)
+
+- Data costs become significant
+- Optimize Parquet partitioning
+- Consider data lifecycle policies
+- Archive old data to Glacier
+
+---
+
 ## Related Documentation
 
 - [Infrastructure Validation Guide](../deployment/INFRASTRUCTURE_VALIDATION.md)
 - [Cost Management Strategy](cost-management-strategy.md)
 - [AWS Deployment Guide](../deployment/AWS_DEPLOYMENT.md)
+- [Performance Benchmarking](performance.md)
