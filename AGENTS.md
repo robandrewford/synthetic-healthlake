@@ -168,6 +168,30 @@ history/
 Run `bd <command> --help` to see all available flags for any command.
 For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
 
+### Markdown Documentation Standards
+
+All Markdown (*.md) docs must follow these formatting rules:
+
+1. **MD032/blanks-around-lists**: Lists should be surrounded by blank lines
+   - Insert a blank line (CR) before and after the list
+   - Example:
+     ```markdown
+     This is a paragraph.
+
+     - List item 1
+     - List item 2
+
+     This is another paragraph.
+     ```
+
+2. **MD036/no-emphasis-as-heading**: Emphasis used instead of a heading
+   - When using **emphasis** as a heading, start the line with a dash "-"
+   - Example: `- **Emphasis Heading**`
+
+3. **MD040/fenced-code-language**: Fenced code blocks should have a language specified
+   - Specify the code language or use "md" if none
+   - Example: ` ```python ` or ` ```md `
+
 ### Important Rules
 
 - Use bd for ALL task tracking
@@ -176,6 +200,7 @@ For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
 - Check `bd ready` before asking "what should I work on?"
 - Store AI planning docs in `history/` directory
 - Run `bd <cmd> --help` to discover available flags
+- Follow markdown formatting standards (MD032, MD036, MD040)
 - Do NOT create markdown TODO lists
 - Do NOT use external issue trackers
 - Do NOT duplicate tracking systems
