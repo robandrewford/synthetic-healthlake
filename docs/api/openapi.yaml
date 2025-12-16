@@ -1,0 +1,677 @@
+openapi: 3.0.3
+info:
+  title: FHIR Health Platform API
+  description: |
+    FHIR R4 compliant REST API for healthcare data access and ingestion.
+    
+    This API provides:
+    - Read and search access to FHIR resources (Patient, Encounter, Observation)
+    - Webhook ingestion for real-time FHIR Bundle delivery
+    - Presigned URL generation for bulk file uploads
+    
+    ## Authentication
+    All endpoints require Bearer token authentication via AWS Cognito.
+    Include the JWT token in the Authorization header.
+    
+    ## FHIR Compliance
+    Search responses return FHIR Bundle resources with type "searchset".
+    Single resource reads return the FHIR resource directly.
+  version: 1.0.0
+  contact:
+    name: Health Platform Team
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.healthplatform.example.com/v1
+    description: Production API
+  - url: https://api-dev.healthplatform.example.com/v1
+    description: Development API
+
+tags:
+  - name: Patient
+    description: FHIR Patient resource operations
+  - name: Encounter
+    description: FHIR Encounter resource operations
+  - name: Observation
+    description: FHIR Observation resource operations
+  - name: Ingestion
+    description: Data ingestion endpoints
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Patient Endpoints
+  /Patient:
+    get:
+      tags:
+        - Patient
+      summary: Search patients
+      description: Search for Patient resources with optional filters
+      operationId: searchPatients
+      parameters:
+        - $ref: '#/components/parameters/patientName'
+        - $ref: '#/components/parameters/patientGender'
+        - $ref: '#/components/parameters/patientBirthdate'
+        - $ref: '#/components/parameters/count'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Search results as FHIR Bundle
+          content:
+            application/fhir+json:
+              schema:
+                $ref: '#/components/schemas/Bundle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /Patient/{id}:
+    get:
+      tags:
+        - Patient
+      summary: Read patient by ID
+      description: Retrieve a single Patient resource by its ID
+      operationId: getPatient
+      parameters:
+        - $ref: '#/components/parameters/resourceId'
+      responses:
+        '200':
+          description: Patient resource
+          content:
+            application/fhir+json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Encounter Endpoints
+  /Encounter:
+    get:
+      tags:
+        - Encounter
+      summary: Search encounters
+      description: Search for Encounter resources with optional filters
+      operationId: searchEncounters
+      parameters:
+        - $ref: '#/components/parameters/encounterPatient'
+        - $ref: '#/components/parameters/encounterStatus'
+        - $ref: '#/components/parameters/encounterDate'
+        - $ref: '#/components/parameters/encounterClass'
+        - $ref: '#/components/parameters/count'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Search results as FHIR Bundle
+          content:
+            application/fhir+json:
+              schema:
+                $ref: '#/components/schemas/Bundle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /Encounter/{id}:
+    get:
+      tags:
+        - Encounter
+      summary: Read encounter by ID
+      description: Retrieve a single Encounter resource by its ID
+      operationId: getEncounter
+      parameters:
+        - $ref: '#/components/parameters/resourceId'
+      responses:
+        '200':
+          description: Encounter resource
+          content:
+            application/fhir+json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Observation Endpoints
+  /Observation:
+    get:
+      tags:
+        - Observation
+      summary: Search observations
+      description: Search for Observation resources with optional filters
+      operationId: searchObservations
+      parameters:
+        - $ref: '#/components/parameters/observationPatient'
+        - $ref: '#/components/parameters/observationCode'
+        - $ref: '#/components/parameters/observationCategory'
+        - $ref: '#/components/parameters/observationDate'
+        - $ref: '#/components/parameters/observationStatus'
+        - $ref: '#/components/parameters/count'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Search results as FHIR Bundle
+          content:
+            application/fhir+json:
+              schema:
+                $ref: '#/components/schemas/Bundle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /Observation/{id}:
+    get:
+      tags:
+        - Observation
+      summary: Read observation by ID
+      description: Retrieve a single Observation resource by its ID
+      operationId: getObservation
+      parameters:
+        - $ref: '#/components/parameters/resourceId'
+      responses:
+        '200':
+          description: Observation resource
+          content:
+            application/fhir+json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Ingestion Endpoints
+  /ingestion/fhir/Bundle:
+    post:
+      tags:
+        - Ingestion
+      summary: Receive FHIR Bundle via webhook
+      description: |
+        Receive a FHIR Bundle for asynchronous processing.
+        The bundle is validated, stored, and queued for processing.
+        Returns immediately with a job ID for status tracking.
+      operationId: receiveBundle
+      requestBody:
+        required: true
+        content:
+          application/fhir+json:
+            schema:
+              $ref: '#/components/schemas/Bundle'
+      responses:
+        '202':
+          description: Bundle accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /ingestion/upload-url:
+    post:
+      tags:
+        - Ingestion
+      summary: Generate presigned upload URL
+      description: |
+        Generate a presigned S3 URL for uploading large FHIR files.
+        Files uploaded via presigned URL are automatically processed.
+      operationId: generateUploadUrl
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /ingestion/jobs/{jobId}:
+    get:
+      tags:
+        - Ingestion
+      summary: Get job status
+      description: Retrieve the status of an ingestion job
+      operationId: getJobStatus
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID returned from webhook or upload
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: AWS Cognito JWT token
+
+  parameters:
+    resourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: FHIR resource ID
+
+    count:
+      name: _count
+      in: query
+      schema:
+        type: integer
+        default: 100
+        minimum: 1
+        maximum: 1000
+      description: Number of results to return
+
+    offset:
+      name: _offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Offset for pagination
+
+    # Patient parameters
+    patientName:
+      name: name
+      in: query
+      schema:
+        type: string
+      description: Patient name (family or given)
+
+    patientGender:
+      name: gender
+      in: query
+      schema:
+        type: string
+        enum: [male, female, other, unknown]
+      description: Patient gender
+
+    patientBirthdate:
+      name: birthdate
+      in: query
+      schema:
+        type: string
+        format: date
+      description: Patient birth date (YYYY-MM-DD)
+
+    # Encounter parameters
+    encounterPatient:
+      name: patient
+      in: query
+      schema:
+        type: string
+      description: Patient ID reference
+
+    encounterStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [planned, arrived, triaged, in-progress, onleave, finished, cancelled]
+      description: Encounter status
+
+    encounterDate:
+      name: date
+      in: query
+      schema:
+        type: string
+        format: date
+      description: Encounter date (YYYY-MM-DD)
+
+    encounterClass:
+      name: class
+      in: query
+      schema:
+        type: string
+      description: Encounter class (ambulatory, inpatient, emergency, etc.)
+
+    # Observation parameters
+    observationPatient:
+      name: patient
+      in: query
+      schema:
+        type: string
+      description: Patient ID reference
+
+    observationCode:
+      name: code
+      in: query
+      schema:
+        type: string
+      description: LOINC code(s), comma-separated for multiple
+
+    observationCategory:
+      name: category
+      in: query
+      schema:
+        type: string
+        enum: [vital-signs, laboratory, imaging, procedure, survey, exam, therapy, activity]
+      description: Observation category
+
+    observationDate:
+      name: date
+      in: query
+      schema:
+        type: string
+        format: date
+      description: Observation effective date (YYYY-MM-DD)
+
+    observationStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum: [registered, preliminary, final, amended, corrected, cancelled]
+      description: Observation status
+
+  schemas:
+    Bundle:
+      type: object
+      required:
+        - resourceType
+        - type
+      properties:
+        resourceType:
+          type: string
+          enum: [Bundle]
+        type:
+          type: string
+          enum: [searchset, transaction, batch, collection, message, document]
+        total:
+          type: integer
+          description: Total number of matching resources
+        entry:
+          type: array
+          items:
+            type: object
+            properties:
+              resource:
+                type: object
+              fullUrl:
+                type: string
+
+    Patient:
+      type: object
+      required:
+        - resourceType
+        - id
+      properties:
+        resourceType:
+          type: string
+          enum: [Patient]
+        id:
+          type: string
+        active:
+          type: boolean
+        gender:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        name:
+          type: array
+          items:
+            type: object
+            properties:
+              family:
+                type: string
+              given:
+                type: array
+                items:
+                  type: string
+
+    Encounter:
+      type: object
+      required:
+        - resourceType
+        - id
+        - status
+        - class
+      properties:
+        resourceType:
+          type: string
+          enum: [Encounter]
+        id:
+          type: string
+        status:
+          type: string
+        class:
+          type: object
+          properties:
+            code:
+              type: string
+            display:
+              type: string
+        subject:
+          type: object
+          properties:
+            reference:
+              type: string
+        period:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+
+    Observation:
+      type: object
+      required:
+        - resourceType
+        - id
+        - status
+        - code
+      properties:
+        resourceType:
+          type: string
+          enum: [Observation]
+        id:
+          type: string
+        status:
+          type: string
+        category:
+          type: array
+          items:
+            type: object
+        code:
+          type: object
+          properties:
+            coding:
+              type: array
+              items:
+                type: object
+                properties:
+                  system:
+                    type: string
+                  code:
+                    type: string
+                  display:
+                    type: string
+        subject:
+          type: object
+          properties:
+            reference:
+              type: string
+        valueQuantity:
+          type: object
+          properties:
+            value:
+              type: number
+            unit:
+              type: string
+
+    JobAccepted:
+      type: object
+      properties:
+        jobId:
+          type: string
+          description: Unique job identifier
+        status:
+          type: string
+          enum: [accepted]
+        message:
+          type: string
+        resourceCount:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count of resources by type
+        createdAt:
+          type: string
+          format: date-time
+
+    JobStatus:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [accepted, processing, completed, failed]
+        message:
+          type: string
+        s3Key:
+          type: string
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    UploadUrlRequest:
+      type: object
+      properties:
+        contentType:
+          type: string
+          enum:
+            - application/fhir+json
+            - application/json
+            - application/fhir+ndjson
+            - application/x-ndjson
+          default: application/fhir+json
+        filename:
+          type: string
+          description: Optional filename for the upload
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadId:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+        method:
+          type: string
+          enum: [PUT]
+        headers:
+          type: object
+          properties:
+            Content-Type:
+              type: string
+        s3Bucket:
+          type: string
+        s3Key:
+          type: string
+        expiresIn:
+          type: integer
+          description: URL expiry in seconds
+        expiresAt:
+          type: number
+          description: Unix timestamp when URL expires
+        instructions:
+          type: object
+          additionalProperties:
+            type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        statusCode:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

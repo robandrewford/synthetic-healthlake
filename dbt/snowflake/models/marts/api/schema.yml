@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: api_patient
+    description: >
+      API-optimized Patient model for FHIR API endpoints.
+      Provides denormalized patient data with computed fields like age and full name.
+    config:
+      tags: ['api', 'patient']
+    columns:
+      - name: patient_id
+        description: FHIR Patient resource ID
+        tests:
+          - not_null
+          - unique
+      - name: active
+        description: Whether the patient record is active
+      - name: gender
+        description: Patient gender (male, female, other, unknown)
+      - name: birth_date
+        description: Patient date of birth
+      - name: full_name
+        description: Computed full name (given + family)
+      - name: age
+        description: Computed age in years
+      - name: is_deceased
+        description: Boolean flag indicating if patient is deceased
+
+  - name: api_encounter
+    description: >
+      API-optimized Encounter model for FHIR API endpoints.
+      Provides denormalized encounter data with patient context.
+    config:
+      tags: ['api', 'encounter']
+    columns:
+      - name: encounter_id
+        description: FHIR Encounter resource ID
+        tests:
+          - not_null
+          - unique
+      - name: status
+        description: Encounter status (planned, arrived, triaged, in-progress, etc.)
+      - name: class_code
+        description: Encounter class code (ambulatory, inpatient, emergency, etc.)
+      - name: patient_id
+        description: Reference to Patient resource
+      - name: period_start
+        description: Start of encounter period
+      - name: period_end
+        description: End of encounter period
+      - name: duration_hours
+        description: Computed duration in hours
+      - name: is_active
+        description: Boolean flag indicating if encounter is currently active
+
+  - name: api_observation
+    description: >
+      API-optimized Observation model for FHIR API endpoints.
+      Provides denormalized observation data with patient/encounter context.
+    config:
+      tags: ['api', 'observation']
+    columns:
+      - name: observation_id
+        description: FHIR Observation resource ID
+        tests:
+          - not_null
+          - unique
+      - name: status
+        description: Observation status (registered, preliminary, final, amended)
+      - name: category_code
+        description: Category code (vital-signs, laboratory, etc.)
+      - name: code
+        description: LOINC or other observation code
+      - name: code_display
+        description: Human-readable code display name
+      - name: patient_id
+        description: Reference to Patient resource
+      - name: encounter_id
+        description: Reference to Encounter resource (optional)
+      - name: effective_datetime
+        description: When the observation was made
+      - name: value_quantity
+        description: Numeric value if applicable
+      - name: value_unit
+        description: Unit for numeric value
+      - name: value_display
+        description: Formatted value for display
+      - name: is_abnormal
+        description: Boolean flag indicating if result is outside reference range
+      - name: category_type
+        description: Normalized category type for filtering

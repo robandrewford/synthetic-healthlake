@@ -4,6 +4,34 @@ sources:
   - name: raw
     database: HEALTH_PLATFORM_DB
     schema: RAW
+    description: Raw FHIR data ingested from S3 via Snowpipe
     tables:
       - name: patients
         description: Raw FHIR Patient data ingested from S3 via Snowpipe.
+        columns:
+          - name: record_content
+            description: FHIR Patient resource as VARIANT JSON
+          - name: source_file
+            description: S3 path of source file
+          - name: ingestion_time
+            description: Timestamp when record was ingested
+
+      - name: encounters
+        description: Raw FHIR Encounter data ingested from S3 via Snowpipe.
+        columns:
+          - name: record_content
+            description: FHIR Encounter resource as VARIANT JSON
+          - name: source_file
+            description: S3 path of source file
+          - name: ingestion_time
+            description: Timestamp when record was ingested
+
+      - name: observations
+        description: Raw FHIR Observation data ingested from S3 via Snowpipe.
+        columns:
+          - name: record_content
+            description: FHIR Observation resource as VARIANT JSON
+          - name: source_file
+            description: S3 path of source file
+          - name: ingestion_time
+            description: Timestamp when record was ingested
