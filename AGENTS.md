@@ -87,11 +87,13 @@ git commit -m "message"
 ```
 
 **DO NOT** ignore hook failures or try to bypass them. If hooks modify files:
+
 1. Read the hook output to see which files were modified
 2. Re-add those files: `git add <files>`
 3. Commit again: `git commit -m "message"`
 
 **Common hooks that modify files:**
+
 - `trailing-whitespace` - Fixes trailing whitespace
 - `end-of-file-fixer` - Ensures files end with newline
 - `ruff-format` - Auto-formats Python code
@@ -170,11 +172,15 @@ For example: `bd create --help` shows `--parent`, `--deps`, `--assignee`, etc.
 
 ### Markdown Documentation Standards
 
-All Markdown (*.md) docs must follow these formatting rules:
+**All Markdown (*.md) docs MUST follow these formatting rules.** Violations will cause pre-commit hooks to fail.
 
-1. **MD032/blanks-around-lists**: Lists should be surrounded by blank lines
-   - Insert a blank line (CR) before and after the list
+#### Required Rules
+
+1. **MD032/blanks-around-lists**: Lists must be surrounded by blank lines
+   - Insert a blank line before AND after every list
+   - This applies to all list types (unordered `-`, ordered `1.`, and checklists `- [ ]`)
    - Example:
+
      ```markdown
      This is a paragraph.
 
@@ -184,13 +190,34 @@ All Markdown (*.md) docs must follow these formatting rules:
      This is another paragraph.
      ```
 
-2. **MD036/no-emphasis-as-heading**: Emphasis used instead of a heading
+2. **MD036/no-emphasis-as-heading**: Don't use emphasis as headings
    - When using **emphasis** as a heading, start the line with a dash "-"
    - Example: `- **Emphasis Heading**`
 
-3. **MD040/fenced-code-language**: Fenced code blocks should have a language specified
-   - Specify the code language or use "md" if none
-   - Example: ` ```python ` or ` ```md `
+3. **MD040/fenced-code-language**: Code blocks must specify a language
+   - Always specify the code language after opening backticks
+   - Use `text` for plain text, `bash` for shell commands, `json` for JSON, etc.
+   - Example: ` ```python ` or ` ```bash ` or ` ```text `
+
+#### Additional Best Practices
+
+4. **Consistent heading levels**: Don't skip heading levels (e.g., don't go from `##` to `####`)
+
+5. **No trailing whitespace**: Lines should not end with spaces
+
+6. **Single trailing newline**: Files should end with exactly one newline
+
+7. **No hard tabs**: Use spaces for indentation (2 or 4 spaces)
+
+8. **Proper list indentation**: Nested lists should be indented consistently (2-4 spaces)
+
+#### Quick Validation
+
+Run this command to check all markdown files:
+
+```bash
+uv run pre-commit run markdownlint --all-files
+```
 
 ### Important Rules
 
