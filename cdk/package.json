@@ -9,11 +9,11 @@
     "synth": "cdk synth"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.130.0",
-    "constructs": "^10.0.0"
+    "aws-cdk-lib": "^2.233.0",
+    "constructs": "^10.4.4"
   },
   "devDependencies": {
     "typescript": "^5.1.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.19.27"
   }
 }
